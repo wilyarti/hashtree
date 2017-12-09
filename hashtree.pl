@@ -323,7 +323,7 @@ sub hashfiles {
         my $sha256sum;
         eval { $sha256sum = digest_file_hex( $path, "SHA-256" ); };
         warn $@ if $@;
-        unless ($@) { $$localhash{$path} = $sha256sum; }
+        unless ($@ && $sha256sum ne "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ) { $$localhash{$path} = $sha256sum; }
     }
     return $localhash;
 }
