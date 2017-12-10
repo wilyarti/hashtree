@@ -485,7 +485,7 @@ sub upld {
     my $bucket_name = $_[2];
     print "(U) $source => $dest\n";
     system
-	qq [ s3cmd -q put '$source' s3://'$bucket_name'/'$dest' ];
+	qq [ s3cmd -e -q put '$source' s3://'$bucket_name'/'$dest' ];
     my $code = $?;
     return $code;
 
@@ -507,7 +507,7 @@ sub dwld {
     else {
         print "(D) $source => $dest\n";
         system
-            qq [s3cmd -q --force get s3://'$bucket_name'/'$source' '$dest'];
+            qq [s3cmd -e -q --force get s3://'$bucket_name'/'$source' '$dest'];
         $code = $?;
         my $shasum;
         eval { $shasum = digest_file_hex( $dest, "SHA-256" ); };
