@@ -27,6 +27,7 @@ use strict;
 use File::Find;
 use Data::Dumper;
 use Digest::file qw(digest_file_hex);
+use Digest::SHA;
 use YAML qw(Dump);
 use YAML::Loader;    # qw(Loader);
 use Array::Split qw( split_into );
@@ -36,7 +37,7 @@ use File::Basename;
 use File::Path qw/make_path/;
 use threads;
 use threads::shared;
-use constant NUM_THREADS => 10;
+use constant NUM_THREADS => 8;
 
 my $Yflag = 0;
 my $Nflag = 0;
@@ -64,11 +65,8 @@ sub main {
 
     print "\nDownloading file index: ";
 
-#system
-#qq [ ssh -i~/.hashleg/private.key hashleg\@clonehost.hl "cat ~/$repo.hsh" | gunzip -f -c > $path/.$repo.master.hsh ];
-    system
-    qq [ hashtrees3download $repo '$repo.hsh' '$path/.$repo.master.hsh' ];
-    if ( $? != 0 ) {
+    my $code = dwld("$repo.hsh", "$path/.$repo.master.hsh", $repo);
+    if ( $code != 0 ) {
         print "Error retrieving remote database.\n";
         print "Choose (c) create new (a) abort: ";
 
@@ -487,7 +485,7 @@ sub upld {
     my $bucket_name = $_[2];
     print "(U) $source => $dest\n";
     system
-	qq [ hashtrees3upload $bucket_name '$source' '$dest' ];
+	qq [ s3cmd -q put '$source' s3://'$bucket_name'/'$dest' ];
     my $code = $?;
     return $code;
 
@@ -509,7 +507,7 @@ sub dwld {
     else {
         print "(D) $source => $dest\n";
         system
-            qq [hashtrees3download '$bucket_name' '$source' '$dest'];
+            qq [s3cmd -q --force get s3://'$bucket_name'/'$source' '$dest'];
         $code = $?;
         my $shasum;
         eval { $shasum = digest_file_hex( $dest, "SHA-256" ); };
@@ -518,7 +516,7 @@ sub dwld {
         if ($@) {
             $code = -1;
         }
-        elsif ( $shasum ne $source ) {
+        elsif ( $shasum ne $source && $source ne "$repo.hsh" ) {
             warn
 "Checksum mismatch on file $dest with hash of\n\t$shasum vs\n\t$source\n";
             print "Omitting $dest from database - chechsum mismatch!";
@@ -542,6 +540,10 @@ elsif ( -d $ARGV[1] ) {
     $repo = $ARGV[0];
     $path = $ARGV[1];
     $path = $1 if ( $path =~ /(.*)\/$/ );
+    my $output =  `s3cmd --version`;
+    my $code = $?;
+    if ($code  != 0) { die "Error: Please install s3cmd atleast version 2+"; }
+    elsif ($output !~ "2.") { die "Error this script requires verson 2.0.1 or greater!" };
     main();
 }
 else { die $errormsg; }
