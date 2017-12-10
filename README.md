@@ -16,6 +16,9 @@ Download and configure s3cmd to use encryption and work with your chosen cloud p
 Then either download the Linux binary "hashtree" or the Perl script "hashtree.pl" and run it.
 
 If you use the Perl script you will need to install CPAN and all the missing dependancies.
+$ pip3 install s3cmd
+$ cpan File::Find Data::Dumper Digest::file Digest::SHA YAML YAML::Loader Array::Split File::Basename File::Path
+
 
 I will create Windows executables soon.
 
