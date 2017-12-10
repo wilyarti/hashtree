@@ -11,26 +11,17 @@ If there is a difference in the files then the user is prompted and a diff of th
 This program allows for multiple computers to have access to the same file system structure and allows for those files to be distrubuted over multiple computers regardless of local filesystem format.
 
 # How to use
-Enter your S3 compatible storage object store keys and host URL in the hashtrees3upload and hashtrees3download files. Make these files executable and place them in your path. 
+Download and configure s3cmd to use encryption and work with your chosen cloud provider.
 
-$ chmod +x hashtrees3upload hashtrees3download
-$ chmod 700 hashtrees3upload hashtrees3download
+Then either download the Linux binary "hashtree" or the Perl script "hashtree.pl" and run it.
 
-Then enter the name of your "bucket" and point the the working directory:
+If you use the Perl script you will need to install CPAN and all the missing dependancies.
 
-$ hashtree mybucket ~/files
-
-If you get errors about missing dependancies install them using cpan:
-
-$ cpan File::Find Data::Dumper Digest::file YAML Array::Split File::Basename File::Path 
-
-If you get errors with Python:
-
-$ pip3 install boto3
-
-Follow the prompts of the script.
+I will create Windows executables soon.
 
 # Todo
-I would like to rewrite this program in either Python or Golang and reduce all the dependancies into a single file. Either than or build a single installable Linux snap or Docker image to make installation simpler.
+~~I would like to rewrite this program in either Python or Golang and reduce all the dependancies into a single file. Either than or build a single installable Linux snap or Docker image to make installation simpler.~~
+
+Build a Windows and Mac OSX executable.
 
 A GUI is on the cards in the future.
