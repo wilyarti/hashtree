@@ -41,8 +41,9 @@ use constant NUM_THREADS => 8;
 
 my $Yflag = 0;
 my $Nflag = 0;
-our $DLflag                = 0;
-our $ULflag                = 0;
+our $DLflag = 0;
+our $ULflag = 0;
+our $Sflag  = 0;
 
 binmode( STDOUT, ":utf8" );
 
@@ -54,9 +55,11 @@ our %localtable;
 our %dlerrortable;
 our %ulerrortable;
 our @threads;
+our $count= 0;
 share(%localtable);
 share(%ulerrortable);
 share(%dlerrortable);
+share($count);
 
 sub main {
 
@@ -65,7 +68,7 @@ sub main {
 
     print "\nDownloading file index: ";
 
-    my $code = dwld("$repo.hsh", "$path/.$repo.master.hsh", $repo);
+    my $code = dwld( "$repo.hsh", "$path/.$repo.master.hsh", $repo );
     if ( $code != 0 ) {
         print "Error retrieving remote database.\n";
         print "Choose (c) create new (a) abort: ";
@@ -78,6 +81,7 @@ sub main {
         else { die "Aborted.\n"; }
     }
     my $indexfile;
+    my $localindexfile;
     {
         open( my $fh, "<$path/.$repo.master.hsh" )
           or warn "Can't open hash file. $path/.$repo.master.hsh";
@@ -85,33 +89,67 @@ sub main {
         $indexfile = <$fh>;
         close $fh;
     }
+    my $scandir = 1;
+    if ( -f "$path/.$repo.hsh" ) {
+        print
+"Hash database already exist. Load existing database or rescan directory?\n";
+        print "Load (l) Rescan (r): ";
+        my $ans = <STDIN>;
+        chomp($ans);
+        if ( $ans eq "l" ) {
+            $scandir = 0;
+        }
+    } 
+    if ($scandir == 1) {
+        #create local file list
+        find( \&wanted, $path, );
+        #### Find all files in directory provided
+        #backup original hash as split_hash() deletes it
+        my $localcount = @filelist;
+        print "Processing $localcount local files.\n";
 
+        #Split array into chunks for threads
+        my @subfilelist = split_into( NUM_THREADS, @filelist );
+
+        for my $arrayref (@subfilelist) {
+            push @threads,
+              threads->create( \&hashfiles, $arrayref, \%localtable );
+        }
+
+        #Join threads to share their data
+        for (@threads) {
+            $_->join();
+        }
+    } else {
+    
+    {
+        open( my $fh, "<$path/.$repo.hsh" )
+          or warn "Can't open hash file. $path/.$repo.hsh";
+        local $/ = undef;
+        $localindexfile = <$fh>;
+        close $fh;
+    }
+        #load YAML into hash
+        my $loader = YAML::Loader->new;
+        my %temptable;
+        eval { %temptable = $loader->load($localindexfile); };
+        if (@_) { warn "FIX ME @_"; }
+        while ( ( my $hash, my $filearray ) = each %remotetable ) {
+            for ( @{$filearray} ) {
+                no warnings 'experimental';
+                push ($_, @filelist);
+                   $localtable{$_} = $hash;
+
+            }
+        }
+    }
     #load YAML into hash
     my $loader = YAML::Loader->new;
+
 
     #add error handling here
     eval { %remotetable = $loader->load($indexfile); };
     if (@_) { warn "FIX ME @_"; }
-
-    #### Find all files in directory provided
-    #create local file list
-    find( \&wanted, $path, );
-
-    #backup original hash as split_hash() deletes it
-    my $localcount = @filelist;
-    print "Processing $localcount local files.\n";
-
-    #Split array into chunks for threads
-    my @subfilelist = split_into( NUM_THREADS, @filelist );
-
-    for my $arrayref (@subfilelist) {
-        push @threads, threads->create( \&hashfiles, $arrayref, \%localtable );
-    }
-
-    #Join threads to share their data
-    for (@threads) {
-        $_->join();
-    }
 
     #Setup and process databases
     my %localdb;
@@ -223,7 +261,7 @@ sub main {
     my @dlthreads;
     for my $hashref (@dlhash) {
         push @dlthreads,
-          threads->create( \&downloader, $hashref, \%dlerrortable );
+          threads->create( \&downloader, $hashref, \%dlerrortable, $Sflag );
     }
 
     #Join threads to share their data
@@ -301,8 +339,8 @@ sub main {
 
     print FH Dump(%localdb);
     close FH;
-    upld( "$path/.$repo.hsh", "$repo.$date.hsh", $repo);
-    upld( "$path/.$repo.hsh", "$repo.hsh", $repo );
+    upld( "$path/.$repo.hsh", "$repo.$date.hsh", $repo );
+    upld( "$path/.$repo.hsh", "$repo.hsh",       $repo );
 
 }
 
@@ -320,8 +358,17 @@ sub hashfiles {
     for my $path (@$filelist) {
         my $sha256sum;
         eval { $sha256sum = digest_file_hex( $path, "SHA-256" ); };
+            $|++; 
+
+        $count++;
+        print "\rHashing file $count";
         warn $@ if $@;
-        unless ($@ && $sha256sum ne "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ) { $$localhash{$path} = $sha256sum; }
+        unless ( $@
+            && $sha256sum ne
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" )
+        {
+            $$localhash{$path} = $sha256sum;
+        }
     }
     return $localhash;
 }
@@ -375,6 +422,7 @@ sub prompt {
         my $Dflag = 0;
         if ( $ans eq "s" ) {
             print "Skipping download. Keeping remote files in database.\n";
+            $Sflag = 1;
         }
         elsif ( $ans eq 'd' ) {
             $Dflag = 1;
@@ -459,12 +507,16 @@ qq [ rfcdiff --stdout '$filepath' '$tmpfile' > '$tmpfile.diff.html' ];
 }
 
 sub downloader {
-    my ( $hash, $errorhash ) = @_;
+    my ( $hash, $errorhash, $Sflag ) = @_;
     my $id = threads->tid;
     my $code;
     while ( ( my $filepath, my $filehash ) = each %$hash ) {
         if ( $filepath eq $path ) {
             warn "Empty value! $filepath\n";
+        }
+        elsif ( $Sflag == 1 ) {
+            print "(S) $filepath\n";
+            $code = 0;
         }
         else {
             $code = dwld( $filehash, $filepath, $repo );
@@ -480,12 +532,11 @@ sub downloader {
 }
 
 sub upld {
-    my $source = $_[0];
-    my $dest   = $_[1];
+    my $source      = $_[0];
+    my $dest        = $_[1];
     my $bucket_name = $_[2];
     print "(U) $source => $dest\n";
-    system
-	qq [ s3cmd -e -q put '$source' s3://'$bucket_name'/'$dest' ];
+    system qq [ s3cmd -e -q put '$source' s3://'$bucket_name'/'$dest' ];
     my $code = $?;
     return $code;
 
@@ -493,11 +544,11 @@ sub upld {
 
 sub dwld {
 
-    my $source = $_[0];
-    my $dest   = $_[1];
+    my $source      = $_[0];
+    my $dest        = $_[1];
     my $bucket_name = $_[2];
-    my $dir    = dirname($dest);
-    my $code   = 0;
+    my $dir         = dirname($dest);
+    my $code        = 0;
     eval { make_path($dir); };
 
     if ($@) {
@@ -507,7 +558,7 @@ sub dwld {
     else {
         print "(D) $source => $dest\n";
         system
-            qq [s3cmd -e -q --force get s3://'$bucket_name'/'$source' '$dest'];
+          qq [s3cmd -e -q --force get s3://'$bucket_name'/'$source' '$dest'];
         $code = $?;
         my $shasum;
         eval { $shasum = digest_file_hex( $dest, "SHA-256" ); };
@@ -540,10 +591,12 @@ elsif ( -d $ARGV[1] ) {
     $repo = $ARGV[0];
     $path = $ARGV[1];
     $path = $1 if ( $path =~ /(.*)\/$/ );
-    my $output =  `s3cmd --version`;
-    my $code = $?;
-    if ($code  != 0) { die "Error: Please install s3cmd atleast version 2+"; }
-    elsif ($output !~ "2.") { die "Error this script requires verson 2.0.1 or greater!" };
+    my $output = `s3cmd --version`;
+    my $code   = $?;
+    if ( $code != 0 ) { die "Error: Please install s3cmd atleast version 2+"; }
+    elsif ( $output !~ "2." ) {
+        die "Error this script requires verson 2.0.1 or greater!";
+    }
     main();
 }
 else { die $errormsg; }
