@@ -399,7 +399,7 @@ sub uploader {
         }
         else {
             $code = upld( $filepath, $filehash, $repo );
-            if ( $code == -1 ) {
+            if ( $code ne 0 ) {
                 print "(E!) $filepath\n";
                 $$errorhash{$filepath} = $filehash;
             }
@@ -520,7 +520,7 @@ sub downloader {
         }
         else {
             $code = dwld( $filehash, $filepath, $repo );
-            if ( $code == -1 ) {
+            if ( $code ne 0 ) {
                 print "(E!) $filepath\n";
                 $$errorhash{$filepath} = $filehash;
             }
@@ -535,9 +535,11 @@ sub upld {
     my $source      = $_[0];
     my $dest        = $_[1];
     my $bucket_name = $_[2];
+    my $code = 0;
     print "(U) $source => $dest\n";
     system qq [ s3cmd -e -q put '$source' s3://'$bucket_name'/'$dest' ];
-    my $code = $?;
+    $code = $?;
+    print $code;
     return $code;
 
 }
