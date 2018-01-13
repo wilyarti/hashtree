@@ -539,7 +539,6 @@ sub upld {
     print "(U) $source => $dest\n";
     system qq [ s3cmd -e -q put '$source' s3://'$bucket_name'/'$dest' ];
     $code = $?;
-    print $code;
     return $code;
 
 }
