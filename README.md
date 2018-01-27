@@ -19,6 +19,9 @@ If you use the Perl script you will need to install CPAN and all the missing dep
 $ pip3 install s3cmd
 $ cpan File::Find Data::Dumper Digest::file Digest::SHA YAML YAML::Loader Array::Split File::Basename File::Path
 
+You will also need:
+rfcdiff
+firefox
 
 I will create Windows executables soon.
 
