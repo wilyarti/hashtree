@@ -37,7 +37,8 @@ use File::Basename;
 use File::Path qw/make_path/;
 use threads;
 use threads::shared;
-use constant NUM_THREADS => 8;
+use constant NUM_THREADS      => 12;
+use constant NUM_DOWN_THREADS => 4;
 
 my $Yflag = 0;
 my $Nflag = 0;
@@ -55,7 +56,7 @@ our %localtable;
 our %dlerrortable;
 our %ulerrortable;
 our @threads;
-our $count= 0;
+our $count = 0;
 share(%localtable);
 share(%ulerrortable);
 share(%dlerrortable);
@@ -63,6 +64,7 @@ share($count);
 
 sub main {
 
+    #open local database file
     open( FH, ">$path/.$repo.hsh" )
       or die "Can't open hash file. $path/.$repo.hsh";
 
@@ -89,63 +91,68 @@ sub main {
         $indexfile = <$fh>;
         close $fh;
     }
-    my $scandir = 1;
-    if ( -f "$path/.$repo.hsh" ) {
-        print
-"Hash database already exist. Load existing database or rescan directory?\n";
-        print "Load (l) Rescan (r): ";
-        my $ans = <STDIN>;
-        chomp($ans);
-        if ( $ans eq "l" ) {
-            $scandir = 0;
-        }
-    } 
-    if ($scandir == 1) {
-        #create local file list
-        find( \&wanted, $path, );
-        #### Find all files in directory provided
-        #backup original hash as split_hash() deletes it
-        my $localcount = @filelist;
-        print "Processing $localcount local files.\n";
-
-        #Split array into chunks for threads
-        my @subfilelist = split_into( NUM_THREADS, @filelist );
-
-        for my $arrayref (@subfilelist) {
-            push @threads,
-              threads->create( \&hashfiles, $arrayref, \%localtable );
-        }
-
-        #Join threads to share their data
-        for (@threads) {
-            $_->join();
-        }
-    } else {
-    
     {
-        open( my $fh, "<$path/.$repo.hsh" )
-          or warn "Can't open hash file. $path/.$repo.hsh";
-        local $/ = undef;
-        $localindexfile = <$fh>;
-        close $fh;
-    }
-        #load YAML into hash
-        my $loader = YAML::Loader->new;
-        my %temptable;
-        eval { %temptable = $loader->load($localindexfile); };
-        if (@_) { warn "FIX ME @_"; }
-        while ( ( my $hash, my $filearray ) = each %remotetable ) {
-            for ( @{$filearray} ) {
-                no warnings 'experimental';
-                push ($_, @filelist);
-                   $localtable{$_} = $hash;
+        my $scandir = 1;
+        if ( -f "$path/.$repo.hsh" ) {
+            print
+"Hash database already exist. Load existing database or rescan directory?\n";
+            print "Load (l) Rescan (r): ";
+            my $ans = <STDIN>;
+            chomp($ans);
+            if ( $ans eq "l" ) {
+                $scandir = 0;
+            }
+        }
+        if ( $scandir == 1 ) {
 
+            #create local file list
+            find( \&wanted, $path, );
+            #### Find all files in directory provided
+            #backup original hash as split_hash() deletes it
+            my $localcount = @filelist;
+            print "Processing $localcount local files.\n";
+
+            #Split array into chunks for threads
+            my @subfilelist = split_into( NUM_THREADS, @filelist );
+
+            for my $arrayref (@subfilelist) {
+                push @threads,
+                  threads->create( \&hashfiles, $arrayref, \%localtable );
+            }
+
+            #Join threads to share their data
+            for (@threads) {
+                $_->join();
+            }
+        }
+        else {
+
+            {
+                open( my $fh, "<$path/.$repo.hsh" )
+                  or warn "Can't open hash file. $path/.$repo.hsh";
+                local $/ = undef;
+                $localindexfile = <$fh>;
+                close $fh;
+            }
+
+            #load YAML into hash
+            my $loader = YAML::Loader->new;
+            my %temptable;
+            eval { %temptable = $loader->load($localindexfile); };
+            if (@_) { warn "FIX ME @_"; }
+            while ( ( my $hash, my $filearray ) = each %remotetable ) {
+                for ( @{$filearray} ) {
+                    no warnings 'experimental';
+                    push @filelist, $_;
+                    $localtable{$_} = $hash;
+
+                }
             }
         }
     }
+
     #load YAML into hash
     my $loader = YAML::Loader->new;
-
 
     #add error handling here
     eval { %remotetable = $loader->load($indexfile); };
@@ -239,8 +246,8 @@ sub main {
     }
 
     #split hashes into an array of hashes to be threaded
-    my $dlsize = ( ( keys %$userdllist ) / NUM_THREADS ) + 1;
-    my $ulsize = ( ( keys %uploadlist ) / NUM_THREADS ) + 1;
+    my $dlsize = ( ( keys %$userdllist ) / NUM_DOWN_THREADS ) + 1;
+    my $ulsize = ( ( keys %uploadlist ) / NUM_DOWN_THREADS ) + 1;
     my ( %dllist, %ullist ) = ( %$userdllist, %uploadlist );
     my @dlhash = split_hash( $dlsize, $userdllist );
     my @ulhash = split_hash( $ulsize, \%uploadlist );
@@ -358,7 +365,7 @@ sub hashfiles {
     for my $path (@$filelist) {
         my $sha256sum;
         eval { $sha256sum = digest_file_hex( $path, "SHA-256" ); };
-            $|++; 
+        $|++;
 
         $count++;
         print "\rHashing file $count";
@@ -416,7 +423,7 @@ sub prompt {
     if ( $opt eq "dl" ) {
         print "There are $filecount remote files missing locally.\n";
         print
-"Choose (d) download all, (c) choose for each, (s) skip download but keep in database: ";
+"Choose (d) download all, (c) choose for each, (s) skip download but keep in database, (r) remove remote files from database: ";
         my $ans = <STDIN>;
         chomp($ans);
         my $Dflag = 0;
@@ -426,6 +433,20 @@ sub prompt {
         }
         elsif ( $ans eq 'd' ) {
             $Dflag = 1;
+        }
+        elsif ( $ans eq 'r' ) {
+            print "Type YES to confirm:  ";
+            my $ans = <STDIN>;
+            chomp($ans);
+            if ( $ans ne "YES" ) {
+                die "Aborting...\n";
+            }
+            while ( ( my $path, my $hash ) = each %$filehash ) {
+                print "Deleting $$filehash{$path}\n";
+                delete $$filehash{$path};
+
+            }
+
         }
         else {
             while ( ( my $path, my $hash ) = each %$filehash ) {
@@ -535,7 +556,7 @@ sub upld {
     my $source      = $_[0];
     my $dest        = $_[1];
     my $bucket_name = $_[2];
-    my $code = 0;
+    my $code        = 0;
     print "(U) $source => $dest\n";
     system qq [ s3cmd -e -q put '$source' s3://'$bucket_name'/'$dest' ];
     $code = $?;
