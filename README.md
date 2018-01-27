@@ -25,6 +25,9 @@ I will create Windows executables soon.
 # Todo
 ~~I would like to rewrite this program in either Python or Golang and reduce all the dependancies into a single file. Either than or build a single installable Linux snap or Docker image to make installation simpler.~~
 
-Build a Windows and Mac OSX executable.
+1.) Build a Windows and Mac OSX executable.
 
-A GUI is on the cards in the future.
+2.) A GUI is on the cards in the future.
+
+3.) Eliminate the need for third party libraries. There is a bug in YAML::Loader with files that have multiple spaces. I will create a simple YAML formatter shortly.
+4.) Write or implement a Perl base s3 storage backend. Currently using s3cmd.
