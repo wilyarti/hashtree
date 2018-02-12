@@ -1,5 +1,10 @@
 # hashtree
-S3 compatible data deduplication script written in Perl
+# WARNING #
+hashtree is currently being re-written in bad Go by the author. The previous version is still supported but no new features will be added.
+
+# hashtree
+
+S3 compatible data deduplication script written in Perl 
 
 # Intro
 Hashtree creates a data base containing a hash of each file in a directory and the files location. This way multiple copies of a file will not be uploaded saving remote storage. 
