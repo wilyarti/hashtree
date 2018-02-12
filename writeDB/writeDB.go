@@ -4,7 +4,7 @@ import (
 	"os"
 	//"fmt"
 	"bytes"
-	 "encoding/hex"
+	"encoding/hex"
 )
 
 type Database struct {
@@ -16,7 +16,7 @@ type Database struct {
 //var hashmap = make(map[[32]byte][]string)
 
 func Dump(path string, hashMap map[[32]byte][]string) error {
-    //Open File or die
+	//Open File or die
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -26,21 +26,21 @@ func Dump(path string, hashMap map[[32]byte][]string) error {
 	var buffer bytes.Buffer
 
 	//// formatter
-    for hash, filelist := range hashMap {
-        // new entries begin with ---' '
-        buffer.WriteString("--- ")
-        buffer.WriteString(hex.EncodeToString(hash[:]))
-        buffer.WriteString("\n")
-        buffer.WriteString("---\n")
-        // iterate through array and add file to yaml formatter
-        for _, filename := range filelist {
-            buffer.WriteString("- ")
-            buffer.WriteString(filename)
-            buffer.WriteString("\n")
-        }
-    }
+	for hash, filelist := range hashMap {
+		// new entries begin with ---' '
+		buffer.WriteString("--- ")
+		buffer.WriteString(hex.EncodeToString(hash[:]))
+		buffer.WriteString("\n")
+		buffer.WriteString("---\n")
+		// iterate through array and add file to yaml formatter
+		for _, filename := range filelist {
+			buffer.WriteString("- ")
+			buffer.WriteString(filename)
+			buffer.WriteString("\n")
+		}
+	}
 
-    file.Write(buffer.Bytes())
-    //fmt.Println(buffer.String())
+	file.Write(buffer.Bytes())
+	//fmt.Println(buffer.String())
 	return nil
 }

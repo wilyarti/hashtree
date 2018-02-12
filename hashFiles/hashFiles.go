@@ -10,7 +10,7 @@ import (
 
 var files = make(map[string][sha256.Size]byte)
 
-func Hash (path string, info os.FileInfo, err error) error {
+func Hash(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Print(err)
 		return nil
@@ -30,12 +30,11 @@ func Hash (path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func Scan (path string) map[string][sha256.Size]byte {
-    dir := path
+func Scan(path string) map[string][sha256.Size]byte {
+	dir := path
 	err := filepath.Walk(dir, Hash)
-    if err != nil {
+	if err != nil {
 		log.Fatal(err)
 	}
 	return files
 }
-
