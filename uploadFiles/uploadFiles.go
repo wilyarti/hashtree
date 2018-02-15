@@ -11,18 +11,16 @@ import (
 const MAX = 5
 
 func Upload(Url string, Port int, Accesskey string, Secretkey string, Enckey string, Filelist map[string]string, Bucket string) error {
-	// break up map into 5 parts
+	// create channels
 	jobs := make(chan map[string]string, MAX)
 	results := make(chan string, len(Filelist))
 
-	// This starts up 3 workers, initially blocked
-	// because there are no jobs yet.
+	// Start five workers
 	for w := 1; w <= 5; w++ {
 		go UploadFile(Bucket, Url, Accesskey, Secretkey, Enckey, w, jobs, results)
 	}
 
-	// Here we send 5 `jobs` and then `close` that
-	// channel to indicate that's all the work we have.
+	// Itterate through map and push jobs to workers
 	for hash, filepath := range Filelist {
 		job := make(map[string]string)
 		job[hash] = filepath
@@ -31,11 +29,12 @@ func Upload(Url string, Port int, Accesskey string, Secretkey string, Enckey str
 	close(jobs)
 
 	var failed []string
-	// Finally we collect all the results of the work.
+	//Collect errors
 	for a := 1; a <= len(Filelist); a++ {
 		failed = append(failed, <-results)
 	}
 	close(results)
+	// Igore empty strings
 	for _, msg := range failed {
 		if msg != "" {
 			fmt.Println(msg)
