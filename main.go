@@ -95,7 +95,13 @@ func main() {
 		uploadlist[hex.EncodeToString(hash[:])] = filearray[0]
 	}
 	t := time.Now()
-	uploadlist[t.Format("2006-01-02_15:04:05")] = strings.Join(hashdb, "")
+	var reponame []string
+	reponame = append(reponame, os.Args[1])
+	reponame = append(reponame, "-")
+	reponame = append(reponame, t.Format("2006-01-02_15:04:05"))
+	reponame = append(reponame, ".hsh")
+
+	uploadlist[strings.Join(reponame, "")] = strings.Join(hashdb, "")
 	// upload and check error
 	err = uploadFiles.Upload(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {
