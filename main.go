@@ -88,10 +88,13 @@ func main() {
 	config = ReadConfig("/home/undef/.htcfg")
 	bucketname := os.Args[1]
 	// upload files
+    // but first lets get a list of already uploaded files:
+
 	// create map of files
 	uploadlist := make(map[string]string)
 	for hash, filearray := range hashmap {
 		// convert hex to ascii
+		// use first file in list for upload
 		uploadlist[hex.EncodeToString(hash[:])] = filearray[0]
 	}
 	t := time.Now()
@@ -106,5 +109,6 @@ func main() {
 	err = uploadFiles.Upload(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
+		os.Exit(1)
 	}
 }
