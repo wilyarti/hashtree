@@ -1,16 +1,16 @@
 package downloadFiles
 
 import (
+    "io"
 	"fmt"
 	"github.com/minio/minio-go"
 	"github.com/minio/minio-go/pkg/encrypt"
-	//"log"
 	"os"
 )
 
 const MAX = 5
 
-func Dowload(Url string, Port int, Accesskey string, Secretkey string, Enckey string, Filelist map[string]string, Bucket string) error {
+func Download(Url string, Port int, Accesskey string, Secretkey string, Enckey string, Filelist map[string]string, Bucket string) error {
 	// break up map into 5 parts
 	jobs := make(chan map[string]string, MAX)
 	results := make(chan string, len(Filelist))
@@ -64,7 +64,7 @@ func DownloadFile(Bucket string, Url string, Accesskey string, Secretkey string,
 			}
 
 			// Encrypt file content and upload to the server
-			reader, err = s3Client.GetEncryptedObject(Bucket, hash, file, cbcMaterials)
+            reader, err := s3Client.GetEncryptedObject(Bucket, hash, cbcMaterials)
 			if err != nil {
 				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
             }
@@ -78,7 +78,7 @@ func DownloadFile(Bucket string, Url string, Accesskey string, Secretkey string,
             if _, err := io.Copy(localFile, reader); err != nil {
 				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
             } else {
-				out := fmt.Sprintf("[U][%d] %s => %s", id, hash, filepath)
+				out := fmt.Sprintf("[D][%d] %s <= %s", id, hash, filepath)
 				fmt.Println(out)
 				results <- ""
 			}
