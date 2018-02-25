@@ -14,7 +14,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	/*//#"gopkg.in/yaml.v2"*/)
 
 var files = make(map[string][sha256.Size]byte)
 
@@ -125,6 +124,7 @@ func main() {
 		// use first file in list for upload
 		hashS := hex.EncodeToString(hash[:])
 		v := remotedb[hashS]
+		// this needs to be tidied up a bit
 		if filearray[0] == strings.Join(hashdb, "") {
 			continue
 		} else if filearray[0] == strings.Join(dbnameLocal, "") {
