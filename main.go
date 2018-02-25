@@ -4,12 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"hashtree/hashFiles"
-	"hashtree/downloadFiles"
-	"hashtree/uploadFiles"
-	"hashtree/readDB"
-	"hashtree/writeDB"
 	"github.com/BurntSushi/toml"
+	"hashtree/downloadFiles"
+	"hashtree/hashFiles"
+	"hashtree/readDB"
+	"hashtree/uploadFiles"
+	"hashtree/writeDB"
 	"log"
 	"os"
 	"strings"
@@ -75,36 +75,36 @@ func main() {
 	var dbname []string
 	var dbnameLocal []string
 	dbname = append(dbname, bucketname)
-    dbname = append(dbname, ".db")
+	dbname = append(dbname, ".db")
 	dbnameLocal = append(dbnameLocal, dir)
-	dbnameLocal = append(dbnameLocal, strings.Join(dbname,""))
+	dbnameLocal = append(dbnameLocal, strings.Join(dbname, ""))
 	downloadlist := make(map[string]string)
 	downloadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
 
 	// download and check error
-    err := downloadFiles.Download(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err := downloadFiles.Download(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
 		fmt.Println("Error .db database is missing, assuming new configuration!")
 	} else {
-		remotedb,err = readDB.Load(strings.Join(dbnameLocal, ""))
+		remotedb, err = readDB.Load(strings.Join(dbnameLocal, ""))
 		if err != nil {
 			fmt.Println("Error writing database!", err)
 			os.Exit(1)
 		}
 	}
 
-	// build [32]byte => array[ 1, 2, 3 list of files ] 
+	// build [32]byte => array[ 1, 2, 3 list of files ]
 	// of current directory structure
 	for file, hash := range files {
-	    // build local file tree
+		// build local file tree
 		v := hashmap[hash]
 		if len(v) == 0 {
 			hashmap[hash] = append(hashmap[hash], file)
 		} else {
 			hashmap[hash] = append(hashmap[hash], file)
 		}
-    }
+	}
 	// write database to file
 	var hashdb []string
 	hashdb = append(hashdb, dir)
@@ -116,33 +116,33 @@ func main() {
 	if err != nil {
 		fmt.Println("Error writing database!", err)
 		os.Exit(1)
-    }
+	}
 
 	// create map of files for upload
 	uploadlist := make(map[string]string)
 	for hash, filearray := range hashmap {
 		// convert hex to ascii
 		// use first file in list for upload
-        hashS := hex.EncodeToString(hash[:])
-        v := remotedb[hashS]
-        if (filearray[0] == strings.Join(hashdb,"")) {
-            continue
-        } else if (filearray[0] == strings.Join(dbnameLocal, "")) {
-            continue
-        } else if len(v) == 0 {
-            uploadlist[hex.EncodeToString(hash[:])] = filearray[0]
+		hashS := hex.EncodeToString(hash[:])
+		v := remotedb[hashS]
+		if filearray[0] == strings.Join(hashdb, "") {
+			continue
+		} else if filearray[0] == strings.Join(dbnameLocal, "") {
+			continue
+		} else if len(v) == 0 {
+			uploadlist[hex.EncodeToString(hash[:])] = filearray[0]
 		} else {
-            for _, filename := range filearray {
-                fmt.Println("[V] ", hashS, " => ", filename)
-            }
-        }
+			for _, filename := range filearray {
+				fmt.Println("[V] ", hashS, " => ", filename)
+			}
+		}
 
 	}
 	t := time.Now()
 	var reponame []string
 	var dbsnapshot []string
 	dbsnapshot = append(dbsnapshot, bucketname)
-    dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_14:05:05"))
+	dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_14:05:05"))
 	dbsnapshot = append(dbsnapshot, ".db")
 
 	reponame = append(reponame, bucketname)
@@ -156,8 +156,8 @@ func main() {
 	// add extra file to remotedb before uploading it
 	for file, hash := range files {
 		// update remotedb with new files
-        hashS := hex.EncodeToString(hash[:])
-        v := remotedb[hashS]
+		hashS := hex.EncodeToString(hash[:])
+		v := remotedb[hashS]
 		if len(v) == 0 {
 			remotedb[hashS] = append(remotedb[hashS], file)
 		} else {
@@ -169,8 +169,8 @@ func main() {
 	if err != nil {
 		fmt.Println("Error writing database!", err)
 		os.Exit(1)
-    }
-    uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
+	}
+	uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
 	// upload and check error
 	err = uploadFiles.Upload(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {

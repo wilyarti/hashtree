@@ -1,10 +1,10 @@
 package downloadFiles
 
 import (
-    "io"
 	"fmt"
 	"github.com/minio/minio-go"
 	"github.com/minio/minio-go/pkg/encrypt"
+	"io"
 	"os"
 )
 
@@ -64,20 +64,20 @@ func DownloadFile(Bucket string, Url string, Accesskey string, Secretkey string,
 			}
 
 			// Encrypt file content and upload to the server
-            reader, err := s3Client.GetEncryptedObject(Bucket, hash, cbcMaterials)
+			reader, err := s3Client.GetEncryptedObject(Bucket, hash, cbcMaterials)
 			if err != nil {
 				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-            }
+			}
 			defer reader.Close()
 			localFile, err := os.Create(filepath)
-            if err != nil {
+			if err != nil {
 				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-            }
-            defer localFile.Close()
+			}
+			defer localFile.Close()
 
-            if _, err := io.Copy(localFile, reader); err != nil {
+			if _, err := io.Copy(localFile, reader); err != nil {
 				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-            } else {
+			} else {
 				out := fmt.Sprintf("[D][%d] %s <= %s", id, hash, filepath)
 				fmt.Println(out)
 				results <- ""
