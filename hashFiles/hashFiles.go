@@ -2,6 +2,7 @@ package hashFiles
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 )
 
 var files = make(map[string][sha256.Size]byte)
+var count int = 0
 
 func Hash(path string, info os.FileInfo, err error) error {
 	if err != nil {
@@ -26,6 +28,8 @@ func Hash(path string, info os.FileInfo, err error) error {
 	}
 	digest := sha256.Sum256(data)
 	files[path] = digest
+	fmt.Printf("\rScanning files: %d", count)
+	count++
 
 	return nil
 }
