@@ -14,12 +14,7 @@ import (
 	"os"
 	"strings"
 	"time"
-
-var files = make(map[string][sha256.Size]byte)
-
-var hashmap = make(map[[32]byte][]string)
-
-var remotedb = make(map[string][]string)
+)
 
 // Info from config file
 type Config struct {
@@ -61,6 +56,10 @@ func main() {
 		dir = strings.Join(strs, "")
 	}
 	// scan files and return map filepath = hash
+	var hashmap = make(map[string][]string)
+	var remotedb = make(map[string][]string)
+	var files = make(map[string][sha256.Size]byte)
+
 	files = hashFiles.Scan(dir)
 
 	// load config to get ready to upload
@@ -97,11 +96,12 @@ func main() {
 	// of current directory structure
 	for file, hash := range files {
 		// build local file tree
-		v := hashmap[hash]
+		s := hex.EncodeToString(hash[:])
+		v := hashmap[hex.EncodeToString(hash[:])]
 		if len(v) == 0 {
-			hashmap[hash] = append(hashmap[hash], file)
+			hashmap[s] = append(hashmap[s], file)
 		} else {
-			hashmap[hash] = append(hashmap[hash], file)
+			hashmap[s] = append(hashmap[s], file)
 		}
 	}
 	// write database to file
@@ -122,18 +122,16 @@ func main() {
 	for hash, filearray := range hashmap {
 		// convert hex to ascii
 		// use first file in list for upload
-		hashS := hex.EncodeToString(hash[:])
-		v := remotedb[hashS]
-		// this needs to be tidied up a bit
+		v := remotedb[hash]
 		if filearray[0] == strings.Join(hashdb, "") {
 			continue
 		} else if filearray[0] == strings.Join(dbnameLocal, "") {
 			continue
 		} else if len(v) == 0 {
-			uploadlist[hex.EncodeToString(hash[:])] = filearray[0]
+			uploadlist[hash] = filearray[0]
 		} else {
 			for _, filename := range filearray {
-				fmt.Println("[V] ", hashS, " => ", filename)
+				fmt.Println("[V] ", hash, " => ", filename)
 			}
 		}
 
@@ -156,16 +154,16 @@ func main() {
 	// add extra file to remotedb before uploading it
 	for file, hash := range files {
 		// update remotedb with new files
-		hashS := hex.EncodeToString(hash[:])
-		v := remotedb[hashS]
+		s := hex.EncodeToString(hash[:])
+		v := remotedb[s]
 		if len(v) == 0 {
-			remotedb[hashS] = append(remotedb[hashS], file)
+			remotedb[s] = append(remotedb[s], file)
 		} else {
-			remotedb[hashS] = append(remotedb[hashS], file)
+			remotedb[s] = append(remotedb[s], file)
 		}
 
 	}
-	err = writeDB.DumpS(strings.Join(dbnameLocal, ""), remotedb)
+	err = writeDB.Dump(strings.Join(dbnameLocal, ""), remotedb)
 	if err != nil {
 		fmt.Println("Error writing database!", err)
 		os.Exit(1)
