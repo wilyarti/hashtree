@@ -20,6 +20,7 @@ import (
 type Config struct {
 	Url       string
 	Port      int
+	Secure    bool
 	Accesskey string
 	Secretkey string
 	Enckey    string
@@ -80,7 +81,7 @@ func main() {
 	downloadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
 
 	// download and check error
-	err := downloadFiles.Download(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
 		fmt.Println("Error .db database is missing, assuming new configuration!")
@@ -170,7 +171,7 @@ func main() {
 	}
 	uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
 	// upload and check error
-	err = uploadFiles.Upload(config.Url, config.Port, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
+	err = uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
