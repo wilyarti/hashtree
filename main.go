@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"hashtree/downloadFiles"
 	"hashtree/hashFiles"
 	"hashtree/readDB"
@@ -12,8 +11,12 @@ import (
 	"hashtree/writeDB"
 	"log"
 	"os"
+	"os/user"
+	"regexp"
 	"strings"
 	"time"
+
+	"github.com/BurntSushi/toml"
 )
 
 // Info from config file
@@ -59,13 +62,27 @@ func main() {
 	// scan files and return map filepath = hash
 	var hashmap = make(map[string][]string)
 	var remotedb = make(map[string][]string)
+	var hashdb []string
+	hashdb = append(hashdb, dir)
+	hashdb = append(hashdb, ".")
+	hashdb = append(hashdb, os.Args[1])
+	hashdb = append(hashdb, ".hsh")
 	var files = make(map[string][sha256.Size]byte)
 
 	files = hashFiles.Scan(dir)
 
 	// load config to get ready to upload
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(usr.HomeDir)
 	var config Config
-	config = ReadConfig("/home/undef/.htcfg")
+	var configName []string
+	configName = append(configName, usr.HomeDir)
+	configName = append(configName, "/.htcfg")
+	fmt.Println(configName)
+	config = ReadConfig(strings.Join(configName, ""))
 	bucketname := os.Args[1]
 
 	// download .db from server this contains the hashed
@@ -76,12 +93,13 @@ func main() {
 	dbname = append(dbname, bucketname)
 	dbname = append(dbname, ".db")
 	dbnameLocal = append(dbnameLocal, dir)
+	dbnameLocal = append(dbnameLocal, ".")
 	dbnameLocal = append(dbnameLocal, strings.Join(dbname, ""))
 	downloadlist := make(map[string]string)
-	downloadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
+	downloadlist[strings.Join(dbnameLocal, "")] = strings.Join(dbname, "")
 
 	// download and check error
-	err := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
 		fmt.Println("Error .db database is missing, assuming new configuration!")
@@ -105,20 +123,9 @@ func main() {
 			hashmap[s] = append(hashmap[s], file)
 		}
 	}
-	// write database to file
-	var hashdb []string
-	hashdb = append(hashdb, dir)
-	hashdb = append(hashdb, ".")
-	hashdb = append(hashdb, os.Args[1])
-	hashdb = append(hashdb, ".hsh")
-
-	err = writeDB.Dump(strings.Join(hashdb, ""), hashmap)
-	if err != nil {
-		fmt.Println("Error writing database!", err)
-		os.Exit(1)
-	}
-
 	// create map of files for upload
+	// do this with the full path of each file before it's
+	// modified below.
 	uploadlist := make(map[string]string)
 	for hash, filearray := range hashmap {
 		// convert hex to ascii
@@ -151,12 +158,31 @@ func main() {
 
 	uploadlist[strings.Join(reponame, "")] = strings.Join(hashdb, "")
 	uploadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
+	uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
 
+	// write database to file
+	// before writing remove directory prefix
+	// so the files in the directory become the root of the data structure
+	var hashmapcooked = make(map[string][]string)
+
+	for hash, filearray := range hashmap {
+		for _, file := range filearray {
+			var reg []string
+			reg = append(reg, "^")
+			reg = append(reg, dir)
+			var re = regexp.MustCompile(strings.Join(reg, ""))
+			f := re.ReplaceAllString(file, "")
+			hashmapcooked[hash] = append(hashmapcooked[hash], f)
+
+		}
+	}
 	// add extra file to remotedb before uploading it
 	for file, hash := range files {
 		// update remotedb with new files
 		s := hex.EncodeToString(hash[:])
 		v := remotedb[s]
+		// remote base name
+
 		if len(v) == 0 {
 			remotedb[s] = append(remotedb[s], file)
 		} else {
@@ -164,12 +190,21 @@ func main() {
 		}
 
 	}
+
+	// write localdb to hard drive
+	err = writeDB.Dump(strings.Join(hashdb, ""), hashmapcooked)
+	if err != nil {
+		fmt.Println("Error writing database!", err)
+		os.Exit(1)
+	}
+
+	// write remotedb to file
 	err = writeDB.Dump(strings.Join(dbnameLocal, ""), remotedb)
 	if err != nil {
 		fmt.Println("Error writing database!", err)
 		os.Exit(1)
 	}
-	uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
+
 	// upload and check error
 	err = uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {

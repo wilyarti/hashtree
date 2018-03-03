@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/user"
 	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/minio/minio-go"
@@ -44,8 +46,17 @@ func main() {
 	}
 
 	// load config to get ready to upload
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(usr.HomeDir)
 	var config Config
-	config = ReadConfig("/home/undef/.htcfg")
+	var configName []string
+	configName = append(configName, usr.HomeDir)
+	configName = append(configName, "/.htcfg")
+	fmt.Println(configName)
+	config = ReadConfig(strings.Join(configName, ""))
 	bucketname := os.Args[1]
 	// New returns an Amazon S3 compatible client object. API compatibility (v2 or v4) is automatically
 	// determined based on the Endpoint value.

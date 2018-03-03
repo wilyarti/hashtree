@@ -7,6 +7,7 @@ import (
 	"hashtree/readDB"
 	"log"
 	"os"
+	"os/user"
 	"strings"
 )
 
@@ -53,8 +54,18 @@ func main() {
 	}
 
 	// load config to get ready to upload
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(usr.HomeDir)
 	var config Config
-	config = ReadConfig("/home/undef/.htcfg")
+	var configName []string
+	configName = append(configName, usr.HomeDir)
+	configName = append(configName, "/.htcfg")
+	fmt.Println(configName)
+	config = ReadConfig(strings.Join(configName, ""))
+
 	bucketname := os.Args[1]
 	databasename := os.Args[2]
 
@@ -63,11 +74,11 @@ func main() {
 	dbnameLocal = append(dbnameLocal, dir)
 	dbnameLocal = append(dbnameLocal, databasename)
 	downloadlist := make(map[string]string)
-	downloadlist[databasename] = strings.Join(dbnameLocal, "")
+	downloadlist[strings.Join(dbnameLocal, "")] = databasename
 
 	// download and check error
 	var remotedb = make(map[string][]string)
-	err := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
 		fmt.Println("Error .db database is missing, assuming new configuration!")
@@ -85,7 +96,10 @@ func main() {
 	for hash, filearray := range remotedb {
 		// build local file tree
 		for _, file := range filearray {
-			dlist[hash] = file
+			var f []string
+			f = append(f, dir)
+			f = append(f, file)
+			dlist[strings.Join(f, "")] = hash
 		}
 	}
 	// Download files

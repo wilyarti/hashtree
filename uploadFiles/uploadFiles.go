@@ -11,7 +11,7 @@ import (
 	"github.com/minio/minio-go/pkg/encrypt"
 )
 
-const MAX = 5
+const MAX = 2
 
 func Upload(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) error {
 	// break up map into 5 parts
@@ -20,7 +20,7 @@ func Upload(url string, port int, secure bool, accesskey string, secretkey strin
 
 	// This starts up 3 workers, initially blocked
 	// because there are no jobs yet.
-	for w := 1; w <= 5; w++ {
+	for w := 1; w <= MAX; w++ {
 		go UploadFile(bucket, url, secure, accesskey, secretkey, enckey, w, jobs, results)
 	}
 
@@ -83,8 +83,14 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			if err != nil {
 				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 			} else {
-				out := fmt.Sprintf("[U][%d]\t(%s)\t(%d)\t%s => %s", id, elapsed, size, hash[:8], b)
-				fmt.Println(out)
+				if len(hash) == 64 {
+					out := fmt.Sprintf("[U][%d]\t(%s)\t(%d)\t%s => %s", id, elapsed, size, hash[:8], b)
+					fmt.Println(out)
+
+				} else {
+					out := fmt.Sprintf("[U][%d]\t(%s)\t(%d)\t%s => %s", id, elapsed, size, hash, b)
+					fmt.Println(out)
+				}
 				results <- ""
 			}
 		}

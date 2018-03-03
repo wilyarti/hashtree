@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/minio/minio-go"
 	"github.com/minio/minio-go/pkg/encrypt"
@@ -24,7 +25,7 @@ func Download(url string, port int, secure bool, accesskey string, secretkey str
 
 	// Here we send 5 `jobs` and then `close` that
 	// channel to indicate that's all the work we have.
-	for hash, filepath := range filelist {
+	for filepath, hash := range filelist {
 		job := make(map[string]string)
 		job[hash] = filepath
 		jobs <- job
@@ -49,10 +50,10 @@ func Download(url string, port int, secure bool, accesskey string, secretkey str
 
 func DownloadFile(bucket string, url string, secure bool, accesskey string, secretkey string, enckey string, id int, jobs <-chan map[string]string, results chan<- string) {
 	for j := range jobs {
-		for hash, filepath := range j {
+		for hash, fpath := range j {
 			s3Client, err := minio.New(url, accesskey, secretkey, secure)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				results <- fmt.Sprintf("[D] %s => %s failed to download: %s", hash, fpath, err)
 			}
 			// Build a symmetric key
 			symmetricKey := encrypt.NewSymmetricKey([]byte(enckey))
@@ -60,25 +61,28 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 			// Build encryption materials which will encrypt uploaded data
 			cbcMaterials, err := encrypt.NewCBCSecureMaterials(symmetricKey)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				results <- fmt.Sprintf("[D] %s => %s failed to download: %s", hash, fpath, err)
 			}
 
 			// Encrypt file content and upload to the server
 			reader, err := s3Client.GetEncryptedObject(bucket, hash, cbcMaterials)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				results <- fmt.Sprintf("[D] %s => %s failed to download: %s", hash, fpath, err)
 			}
 			defer reader.Close()
-			localFile, err := os.Create(filepath)
+			// create file path:
+			basedir := filepath.Dir(fpath)
+			os.MkdirAll(basedir, os.ModePerm)
+			localFile, err := os.Create(fpath)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				results <- fmt.Sprintf("[D] %s => %s failed to download: %s", hash, fpath, err)
 			}
 			defer localFile.Close()
 
 			if _, err := io.Copy(localFile, reader); err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				results <- fmt.Sprintf("[D] %s => %s failed to download: %s", hash, fpath, err)
 			} else {
-				out := fmt.Sprintf("[D][%d] %s <= %s", id, hash, filepath)
+				out := fmt.Sprintf("[D][%d] %s <= %s", id, hash, fpath)
 				fmt.Println(out)
 				results <- ""
 			}
