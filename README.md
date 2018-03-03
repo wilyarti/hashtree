@@ -1,8 +1,27 @@
-# hashtree
 # WARNING #
 hashtree is currently being re-written in bad Go by the author. The previous version is still supported but no new features will be added.
+# hashtree - Go Version
+S3 Compatible backup, deduplication and snapshotting system.
 
-# hashtree
+It consists of three files:
+hashtree - hash, encrypt an snapshot filesystem
+hashlist - find and list snapshot
+hashseed - deploy snapshot
+
+You will need to create: ~/.htcfg
+Url="nyc3.digitaloceanspaces.com"
+Port=443
+Secure=true
+Accesskey="youaccesskey"
+Secretkey="yoursecretkey"
+Enckey="32characterpassword-mustbe32characters" 
+
+I will add a switch to enable more cores/goroutines soon. Beware the encryption is very CPU/memory intensive. The current limit is 2. This works OK with 2GB of RAM and a 1.5Ghz CPU. The max most hosting companies will allow is 5.
+
+TODO:
+=> Post download checksum verification
+
+# hashtree - Perl Version
 
 S3 compatible data deduplication script written in Perl 
 
