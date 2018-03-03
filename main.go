@@ -46,11 +46,12 @@ func ReadConfig(configfile string) Config {
 
 func main() {
 	log.SetFlags(log.Lshortfile)
+	// check we have enough command line args
 	if len(os.Args) < 3 {
 		fmt.Print("Error: please specify bucket and directory!\n")
 		os.Exit(1)
 	}
-	// check for and add trailing / in folder name
+	// check for and add trailing / in folder name and add it
 	var strs []string
 	slash := os.Args[2][len(os.Args[2])-1:]
 	var dir = os.Args[2]
@@ -59,19 +60,25 @@ func main() {
 		strs = append(strs, "/")
 		dir = strings.Join(strs, "")
 	}
-	// scan files and return map filepath = hash
+
+	// create various variables
 	var hashmap = make(map[string][]string)
 	var remotedb = make(map[string][]string)
+	// create hash database name
 	var hashdb []string
 	hashdb = append(hashdb, dir)
 	hashdb = append(hashdb, ".")
 	hashdb = append(hashdb, os.Args[1])
 	hashdb = append(hashdb, ".hsh")
+	// the default output of files is a byte array and string
+	// this is later changed to string[]=>string
 	var files = make(map[string][sha256.Size]byte)
 
+	// scan files and return map filepath = hash
 	files = hashFiles.Scan(dir)
 
 	// load config to get ready to upload
+	// first, find the path of $HOME
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
@@ -99,6 +106,7 @@ func main() {
 	downloadlist[strings.Join(dbnameLocal, "")] = strings.Join(dbname, "")
 
 	// download and check error
+	// download has the format filename => remotename
 	err = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
 		fmt.Println(err)
@@ -111,8 +119,7 @@ func main() {
 		}
 	}
 
-	// build [32]byte => array[ 1, 2, 3 list of files ]
-	// of current directory structure
+	// create out map of [sha256hash] => array of file names
 	for file, hash := range files {
 		// build local file tree
 		s := hex.EncodeToString(hash[:])
@@ -145,6 +152,8 @@ func main() {
 
 	}
 	t := time.Now()
+	// create a snapshot of the database
+	// create a snapshot of the hash tree
 	var reponame []string
 	var dbsnapshot []string
 	dbsnapshot = append(dbsnapshot, bucketname)
@@ -156,6 +165,7 @@ func main() {
 	reponame = append(reponame, t.Format("2006-01-02_15:04:05"))
 	reponame = append(reponame, ".hsh")
 
+	// add these files to the upload list
 	uploadlist[strings.Join(reponame, "")] = strings.Join(hashdb, "")
 	uploadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
 	uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
