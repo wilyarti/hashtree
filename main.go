@@ -155,25 +155,6 @@ func main() {
 		}
 
 	}
-	t := time.Now()
-	// create a snapshot of the database
-	// create a snapshot of the hash tree
-	var reponame []string
-	var dbsnapshot []string
-	dbsnapshot = append(dbsnapshot, bucketname)
-	dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_14:05:05"))
-	dbsnapshot = append(dbsnapshot, ".db")
-
-	reponame = append(reponame, bucketname)
-	reponame = append(reponame, "-")
-	reponame = append(reponame, t.Format("2006-01-02_15:04:05"))
-	reponame = append(reponame, ".hsh")
-
-	// add these files to the upload list
-	uploadlist[strings.Join(reponame, "")] = strings.Join(hashdb, "")
-	uploadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
-	uploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
-
 	// write database to file
 	// before writing remove directory prefix
 	// so the files in the directory become the root of the data structure
@@ -205,6 +186,32 @@ func main() {
 
 	}
 
+	// upload and check error
+	err, failedUploads := uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
+	if err != nil {
+		for _, hash := range failedUploads {
+			fmt.Println("Failed to upload: ", hash)
+			delete(remotedb, hash)
+			delete(hashmapcooked, hash)
+
+		}
+		fmt.Println(err)
+	}
+	// create database and upload
+	t := time.Now()
+	// create a snapshot of the database
+	// create a snapshot of the hash tree
+	var reponame []string
+	var dbsnapshot []string
+	dbsnapshot = append(dbsnapshot, bucketname)
+	dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_14:05:05"))
+	dbsnapshot = append(dbsnapshot, ".db")
+
+	reponame = append(reponame, bucketname)
+	reponame = append(reponame, "-")
+	reponame = append(reponame, t.Format("2006-01-02_15:04:05"))
+	reponame = append(reponame, ".hsh")
+
 	// write localdb to hard drive
 	err = writeDB.Dump(strings.Join(hashdb, ""), hashmapcooked)
 	if err != nil {
@@ -219,14 +226,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// upload and check error
-	err, failedUploads := uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
+	dbuploadlist := make(map[string]string)
+	// add these files to the upload list
+	dbuploadlist[strings.Join(reponame, "")] = strings.Join(hashdb, "")
+	dbuploadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
+	dbuploadlist[strings.Join(dbsnapshot, "")] = strings.Join(dbnameLocal, "")
+	err, failedUploads = uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dbuploadlist, bucketname)
 	if err != nil {
-		for _, file := range failedUploads {
-			fmt.Println("Failed to upload: ", file)
+		for _, hash := range failedUploads {
+			fmt.Println("Failed to upload: ", hash)
 		}
 		fmt.Println(err)
 	}
+
 	err = os.Remove(strings.Join(hashdb, ""))
 	if err != nil {
 		fmt.Println("Error deleting database!", err)

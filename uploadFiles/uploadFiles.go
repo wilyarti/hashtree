@@ -11,7 +11,7 @@ import (
 	"github.com/minio/minio-go/pkg/encrypt"
 )
 
-const MAX = 2
+const MAX = 5
 
 func Upload(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) (error, []string) {
 	// break up map into 5 parts
@@ -67,7 +67,7 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			if err != nil {
 				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 				fmt.Println(out)
-				results <- filepath
+				results <- hash
 			}
 
 			// Open a local file that we will upload
@@ -75,7 +75,7 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			if err != nil {
 				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 				fmt.Println(out)
-				results <- filepath
+				results <- hash
 			}
 			defer file.Close()
 
@@ -87,7 +87,7 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			if err != nil {
 				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 				fmt.Println(out)
-				results <- filepath
+				results <- hash
 			}
 
 			// Encrypt file content and upload to the server
