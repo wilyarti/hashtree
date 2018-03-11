@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -83,12 +84,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(usr.HomeDir)
 	var config Config
 	var configName []string
 	configName = append(configName, usr.HomeDir)
 	configName = append(configName, "/.htcfg")
-	fmt.Println(configName)
 	config = ReadConfig(strings.Join(configName, ""))
 	bucketname := os.Args[1]
 
@@ -107,8 +106,11 @@ func main() {
 
 	// download and check error
 	// download has the format filename => remotename
-	err = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err, failedDownload := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
+		for _, file := range failedDownload {
+			fmt.Println("Error failed to download: ", file)
+		}
 		fmt.Println(err)
 		fmt.Println("Error .db database is missing, assuming new configuration!")
 	} else {
@@ -146,7 +148,9 @@ func main() {
 			uploadlist[hash] = filearray[0]
 		} else {
 			for _, filename := range filearray {
-				fmt.Println("[V] ", hash, " => ", filename)
+				b := path.Base(filename)
+				out := fmt.Sprintf("[V]    %s => %s", hash[:8], b)
+				fmt.Println(out)
 			}
 		}
 
@@ -216,9 +220,24 @@ func main() {
 	}
 
 	// upload and check error
-	err = uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
+	err, failedUploads := uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {
+		for _, file := range failedUploads {
+			fmt.Println("Failed to upload: ", file)
+		}
 		fmt.Println(err)
-		os.Exit(1)
 	}
+	err = os.Remove(strings.Join(hashdb, ""))
+	if err != nil {
+		fmt.Println("Error deleting database!", err)
+	}
+	err = os.Remove(strings.Join(dbnameLocal, ""))
+	if err != nil {
+		fmt.Println("Error deleting database!", err)
+	}
+	err = os.Remove(strings.Join(dbname, ""))
+	if err != nil {
+		fmt.Println("Error deleting database!", err)
+	}
+
 }

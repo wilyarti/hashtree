@@ -2,18 +2,18 @@ package uploadFiles
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/minio/minio-go"
 	"github.com/minio/minio-go/pkg/encrypt"
 )
 
 const MAX = 2
 
-func Upload(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) error {
+func Upload(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) (error, []string) {
 	// break up map into 5 parts
 	jobs := make(chan map[string]string, MAX)
 	results := make(chan string, len(filelist))
@@ -39,13 +39,24 @@ func Upload(url string, port int, secure bool, accesskey string, secretkey strin
 		failed = append(failed, <-results)
 	}
 	close(results)
+	var count float64 = 0
+	var errCount float64 = 0
 	for _, msg := range failed {
 		if msg != "" {
+			errCount++
 			fmt.Println(msg)
+		} else {
+			count++
 		}
 	}
+	if count != 0 {
+		fmt.Println(count, " files uploaded successfully.")
+	} else {
+		fmt.Println(count, " files uploaded successfully.")
+		fmt.Println(errCount, " files failed to upload.")
+	}
 
-	return nil
+	return nil, failed
 
 }
 
@@ -54,15 +65,17 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 		for hash, filepath := range j {
 			s3Client, err := minio.New(url, accesskey, secretkey, secure)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-				log.Fatal(err)
+				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				fmt.Println(out)
+				results <- filepath
 			}
 
 			// Open a local file that we will upload
 			file, err := os.Open(filepath)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-				log.Fatal(err)
+				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				fmt.Println(out)
+				results <- filepath
 			}
 			defer file.Close()
 
@@ -72,26 +85,38 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			// Build encryption materials which will encrypt uploaded data
 			cbcMaterials, err := encrypt.NewCBCSecureMaterials(symmetricKey)
 			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+				fmt.Println(out)
+				results <- filepath
 			}
 
 			// Encrypt file content and upload to the server
+			// try multiple times
 			b := path.Base(filepath)
-			start := time.Now()
-			size, err := s3Client.PutEncryptedObject(bucket, hash, file, cbcMaterials)
-			elapsed := time.Since(start)
-			if err != nil {
-				results <- fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-			} else {
-				if len(hash) == 64 {
-					out := fmt.Sprintf("[U][%d]\t(%s)\t(%d)\t%s => %s", id, elapsed, size, hash[:8], b)
-					fmt.Println(out)
-
+			for i := 0; i < 4; i++ {
+				start := time.Now()
+				size, err := s3Client.PutEncryptedObject(bucket, hash, file, cbcMaterials)
+				elapsed := time.Since(start)
+				if err != nil {
+					if i == 3 {
+						out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+						fmt.Println(out)
+						results <- hash
+						break
+					}
 				} else {
-					out := fmt.Sprintf("[U][%d]\t(%s)\t(%d)\t%s => %s", id, elapsed, size, hash, b)
-					fmt.Println(out)
+					var s uint64 = uint64(size)
+					if len(hash) == 64 {
+						out := fmt.Sprintf("[U][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash[:8], b)
+						fmt.Println(out)
+
+					} else {
+						out := fmt.Sprintf("[U][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash, b)
+						fmt.Println(out)
+					}
+					break
+					results <- ""
 				}
-				results <- ""
 			}
 		}
 	}
