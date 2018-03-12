@@ -10,6 +10,8 @@ import (
 	"hashtree/uploadFiles"
 	"hashtree/writeDB"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/user"
 	"path"
@@ -46,6 +48,9 @@ func ReadConfig(configfile string) Config {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	log.SetFlags(log.Lshortfile)
 	// check we have enough command line args
 	if len(os.Args) < 3 {

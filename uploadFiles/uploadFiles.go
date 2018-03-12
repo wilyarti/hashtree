@@ -11,7 +11,7 @@ import (
 	"github.com/minio/minio-go/pkg/encrypt"
 )
 
-const MAX = 5
+const MAX = 3
 
 func Upload(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) (error, []string) {
 	// break up map into 5 parts
@@ -94,6 +94,8 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			// try multiple times
 			b := path.Base(filepath)
 			for i := 0; i < 4; i++ {
+				out := fmt.Sprintf("(u)(%d)\t%s => %s", i, hash, b)
+				fmt.Println(out)
 				start := time.Now()
 				size, err := s3Client.PutEncryptedObject(bucket, hash, file, cbcMaterials)
 				elapsed := time.Since(start)
@@ -109,10 +111,12 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 					if len(hash) == 64 {
 						out := fmt.Sprintf("[U][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash[:8], b)
 						fmt.Println(out)
+						results <- ""
 
 					} else {
 						out := fmt.Sprintf("[U][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash, b)
 						fmt.Println(out)
+						results <- ""
 					}
 					break
 					results <- ""
