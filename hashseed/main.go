@@ -58,12 +58,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(usr.HomeDir)
 	var config Config
 	var configName []string
 	configName = append(configName, usr.HomeDir)
 	configName = append(configName, "/.htcfg")
-	fmt.Println(configName)
 	config = ReadConfig(strings.Join(configName, ""))
 
 	bucketname := os.Args[1]
@@ -78,15 +76,13 @@ func main() {
 
 	// download and check error
 	var remotedb = make(map[string][]string)
-	err = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err, _ = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Error .db database is missing, assuming new configuration!")
-		os.Exit(1)
+		fmt.Println("Error unable to download database:", err)
 	} else {
 		remotedb, err = readDB.Load(strings.Join(dbnameLocal, ""))
 		if err != nil {
-			fmt.Println("Error writing database!", err)
+			fmt.Println("Error processing database!", err)
 			os.Exit(1)
 		}
 	}
@@ -103,9 +99,13 @@ func main() {
 		}
 	}
 	// Download files
-	err = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dlist, bucketname)
+	err, failedDownloads := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dlist, bucketname)
 	if err != nil {
+		for _, file := range failedDownloads {
+			fmt.Println("Error failed to download: ", file)
+		}
+		fmt.Println(err)
+		fmt.Println("Error .db database is missing, assuming new configuration!")
 		os.Exit(1)
 	}
-
 }

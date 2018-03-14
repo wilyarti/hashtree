@@ -122,7 +122,6 @@ func main() {
 		remotedb, err = readDB.Load(strings.Join(dbnameLocal, ""))
 		if err != nil {
 			fmt.Println("Error writing database!", err)
-			os.Exit(1)
 		}
 	}
 
@@ -209,6 +208,7 @@ func main() {
 	var reponame []string
 	var dbsnapshot []string
 	dbsnapshot = append(dbsnapshot, bucketname)
+	dbsnapshot = append(dbsnapshot, "")
 	dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_14:05:05"))
 	dbsnapshot = append(dbsnapshot, ".db")
 
@@ -252,9 +252,4 @@ func main() {
 	if err != nil {
 		fmt.Println("Error deleting database!", err)
 	}
-	err = os.Remove(strings.Join(dbname, ""))
-	if err != nil {
-		fmt.Println("Error deleting database!", err)
-	}
-
 }

@@ -50,12 +50,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(usr.HomeDir)
 	var config Config
 	var configName []string
 	configName = append(configName, usr.HomeDir)
 	configName = append(configName, "/.htcfg")
-	fmt.Println(configName)
 	config = ReadConfig(strings.Join(configName, ""))
 	bucketname := os.Args[1]
 	// New returns an Amazon S3 compatible client object. API compatibility (v2 or v4) is automatically
