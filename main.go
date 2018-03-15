@@ -14,7 +14,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/user"
-	"path"
+	//"path"
 	"regexp"
 	"strings"
 	"time"
@@ -139,26 +139,32 @@ func main() {
 	// create map of files for upload
 	// do this with the full path of each file before it's
 	// modified below.
+	var c float64
 	uploadlist := make(map[string]string)
 	for hash, filearray := range hashmap {
 		// convert hex to ascii
 		// use first file in list for upload
 		v := remotedb[hash]
+		// check if database filenames
 		if filearray[0] == strings.Join(hashdb, "") {
 			continue
 		} else if filearray[0] == strings.Join(dbnameLocal, "") {
 			continue
+			// this file exist remotely
 		} else if len(v) == 0 {
 			uploadlist[hash] = filearray[0]
+			// file exists remotely
 		} else {
-			for _, filename := range filearray {
-				b := path.Base(filename)
-				out := fmt.Sprintf("[V]    %s => %s", hash[:8], b)
-				fmt.Println(out)
-			}
+			c += float64(len(v))
+			//for _, _ := range filearray {
+			//b := path.Base(filename)
+			//fmt.Printf("Parsing database: %v\t %s", c, b)
+			//	c++
+			//}
 		}
 
 	}
+	fmt.Println("\nVerified files: ", c)
 	// write database to file
 	// before writing remove directory prefix
 	// so the files in the directory become the root of the data structure
@@ -194,6 +200,7 @@ func main() {
 	err, failedUploads := uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, uploadlist, bucketname)
 	if err != nil {
 		for _, hash := range failedUploads {
+			// remove failed uploads from database
 			fmt.Println("Failed to upload: ", hash)
 			delete(remotedb, hash)
 			delete(hashmapcooked, hash)

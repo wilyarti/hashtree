@@ -1,6 +1,7 @@
 package uploadFiles
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -39,6 +40,19 @@ const (
 
 const MAX = 3
 
+// errorString is a trivial implementation of error.
+type errorString struct {
+	s string
+}
+
+// New returns an error that formats as the given text.
+func New(text string) error {
+	return &errorString{text}
+}
+func (e *errorString) Error() string {
+	return e.s
+}
+
 // EncryptedSize returns the size of the object after encryption.
 // An encrypted object is always larger than a plain object
 // except for zero size objects.
@@ -70,29 +84,29 @@ func Upload(url string, port int, secure bool, accesskey string, secretkey strin
 	}
 	close(jobs)
 
+	var grmsgs []string
 	var failed []string
 	// Finally we collect all the results of the work.
 	for a := 1; a <= len(filelist); a++ {
-		failed = append(failed, <-results)
+		grmsgs = append(grmsgs, <-results)
 	}
 	close(results)
 	var count float64 = 0
 	var errCount float64 = 0
-	for _, msg := range failed {
+	for _, msg := range grmsgs {
 		if msg != "" {
 			errCount++
-			fmt.Println(msg)
 		} else {
+			failed = append(failed, msg)
 			count++
 		}
 	}
-	if count != 0 {
-		fmt.Println(count, " files uploaded successfully.")
+	if errCount != 0 {
+		out := fmt.Sprintf("Failed to upload: %v files", errCount)
+		return errors.New(out), failed
 	} else {
-		fmt.Println(count, " files uploaded successfully.")
-		fmt.Println(errCount, " files failed to upload.")
+		return nil, failed
 	}
-
 	return nil, failed
 
 }
@@ -155,12 +169,10 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				} else {
 					var s uint64 = uint64(size)
 					if len(hash) == 64 {
-						out := fmt.Sprintf("[U][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash[:8], b)
-						fmt.Println(out)
+						fmt.Printf("[U][%d]\t(%s)\t(%s)    \t%s => %s\n", i, elapsed, humanize.Bytes(s), hash[:8], b)
 
 					} else {
-						out := fmt.Sprintf("[U][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash, b)
-						fmt.Println(out)
+						fmt.Printf("[U][%d]\t(%s)\t(%s)    \t%s => %s\n", i, elapsed, humanize.Bytes(s), hash, b)
 					}
 					results <- ""
 					break

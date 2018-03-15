@@ -37,6 +37,7 @@ func Hash(path string, info os.FileInfo, err error) error {
 func Scan(path string) map[string][sha256.Size]byte {
 	dir := path
 	err := filepath.Walk(dir, Hash)
+	fmt.Println("")
 	if err != nil {
 		log.Fatal(err)
 	}

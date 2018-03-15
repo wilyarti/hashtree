@@ -1,9 +1,12 @@
 package downloadFiles
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -42,6 +45,19 @@ const (
 	sseDAREPackageMetaSize = 32 // 32 bytes
 )
 
+// errorString is a trivial implementation of error.
+type errorString struct {
+	s string
+}
+
+// New returns an error that formats as the given text.
+func New(text string) error {
+	return &errorString{text}
+}
+func (e *errorString) Error() string {
+	return e.s
+}
+
 func decryptedSize(encryptedSize int64) (int64, error) {
 	if encryptedSize == 0 {
 		return encryptedSize, nil
@@ -76,30 +92,31 @@ func Download(url string, port int, secure bool, accesskey string, secretkey str
 	}
 	close(jobs)
 
+	var grmsgs []string
 	var failed []string
 	// Finally we collect all the results of the work.
 	for a := 1; a <= len(filelist); a++ {
-		failed = append(failed, <-results)
+		grmsgs = append(grmsgs, <-results)
 	}
 	close(results)
 	var count float64 = 0
 	var errCount float64 = 0
-	for _, msg := range failed {
+	for _, msg := range grmsgs {
 		if msg != "" {
 			errCount++
-			fmt.Println(msg)
+			failed = append(failed, msg)
 		} else {
 			count++
 		}
 	}
-	if count != 0 {
-		fmt.Println(count, " files downloaded successfully.")
-	} else {
-		fmt.Println(count, " files downloaded successfully.")
-		fmt.Println(errCount, " files failed to download.")
-	}
+	//fmt.Println(count, " files downloaded successfully.")
 
-	return nil, failed
+	if errCount != 0 {
+		out := fmt.Sprintf("Failed to download: %v files", errCount)
+		return errors.New(out), failed
+	} else {
+		return nil, failed
+	}
 
 }
 
@@ -189,7 +206,24 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 				elapsed := time.Since(start)
 				var s uint64 = uint64(dsize)
 				if len(hash) == 64 {
-					out := fmt.Sprintf("[D][%d]\t(%s)\t(%s)    \t%s => %s", i, elapsed, humanize.Bytes(s), hash[:8], b)
+					data, err := ioutil.ReadFile(fpath)
+					if err != nil {
+						out := fmt.Sprintf("[!] %s => %s failed to download: %s", hash, fpath, err)
+						fmt.Println(out)
+						results <- hash
+						break
+					}
+
+					digest := sha256.Sum256(data)
+					checksum := hex.EncodeToString(digest[:])
+					if hash != checksum {
+						out := fmt.Sprintf("[!] %s => %s checksum mismatch!", hash, fpath)
+						fmt.Println(out)
+						results <- hash
+						break
+
+					}
+					out := fmt.Sprintf("[D][V]\t(%s)\t(%s)    \t%s => %s", elapsed, humanize.Bytes(s), hash[:8], b)
 					fmt.Println(out)
 					results <- ""
 					break

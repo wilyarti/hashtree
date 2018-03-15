@@ -104,8 +104,6 @@ func main() {
 		for _, file := range failedDownloads {
 			fmt.Println("Error failed to download: ", file)
 		}
-		fmt.Println(err)
-		fmt.Println("Error .db database is missing, assuming new configuration!")
 		os.Exit(1)
 	}
 }
