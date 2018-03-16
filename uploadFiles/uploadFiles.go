@@ -96,8 +96,8 @@ func Upload(url string, port int, secure bool, accesskey string, secretkey strin
 	for _, msg := range grmsgs {
 		if msg != "" {
 			errCount++
-		} else {
 			failed = append(failed, msg)
+		} else {
 			count++
 		}
 	}
@@ -177,6 +177,7 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 					results <- ""
 					break
 				}
+				time.Sleep(time.Duration(i) * time.Second)
 			}
 		}
 	}
