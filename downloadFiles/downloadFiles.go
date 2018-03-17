@@ -125,10 +125,29 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 		// hash is reversed: filepath => hash
 		for fpath, hash := range j {
 			if _, err := os.Stat(fpath); err == nil {
-				out := fmt.Sprintf("[!] %s => %s Error! File exists.", hash, fpath)
-				fmt.Println(out)
-				results <- hash
-				break
+				data, err := ioutil.ReadFile(fpath)
+				if err != nil {
+					out := fmt.Sprintf("[!] %s => %s failed to verify: %s", hash, fpath, err)
+					fmt.Println(out)
+					results <- hash
+					break
+				}
+
+				digest := sha256.Sum256(data)
+				checksum := hex.EncodeToString(digest[:])
+				if hash != checksum {
+					out := fmt.Sprintf("[!] %s => %s local file differs from remote version!", hash, fpath)
+					fmt.Println(out)
+					results <- hash
+					break
+
+				} else {
+					b := path.Base(fpath)
+					out := fmt.Sprintf("[V]\t%s => %s", hash[:8], b)
+					fmt.Println(out)
+					results <- ""
+					break
+				}
 			}
 			s3Client, err := minio.New(url, accesskey, secretkey, secure)
 			// break unrecoverable errors
