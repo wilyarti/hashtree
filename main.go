@@ -73,7 +73,7 @@ func main() {
 	}
 	switch opt := os.Args[1]; opt {
 	case "init":
-		fmt.Println("Init")
+		fmt.Println("Init is not implemented yet.")
 	case "list":
 		hashlist()
 		os.Exit(0)
