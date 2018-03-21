@@ -15,24 +15,24 @@ Accesskey="S3 access key"
 Secretkey="S3 secret key"
 Enckey="your encryption key here, longer is better"
 ```
-***To use the program:***
+###To use the program:
 
-Initialise Repository:
+**Initialise Repository:**
 >		hashtree init <repository> 
     
 This will create the remote bucket and create an empty database (not implemented yet)
 
-List snapshots:
+**List snapshots:**
 >		hashtree list <repository>
     
 This lists all available filesystem snapshots
 
-Deploy snapshot:
+**Deploy snapshot:**
 >		hashtree pull <repository> <snapshot> <directory>
 
 This will deploy a snapshot to a given directory. All paths will be created so the directory need not exist.
 
-Create snapshot:
+**Create snapshot:**
 >		hashtree push <repository> <directory> 
 
 This will create a new snapshot and upload any new files to the remote database. Each snapshot only takes up as much space as 
