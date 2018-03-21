@@ -435,7 +435,7 @@ func usage() {
 	List snapshots:
 		hashtree list <repository>
 	Deploy snapshot:
-		hashtree pull <repository> <snapshot>
+		hashtree pull <repository> <snapshot> <directory>
 	Create snapshot:
 		hashtree push <repository> <directory>`)
 }
