@@ -15,7 +15,7 @@ Accesskey="S3 access key"
 Secretkey="S3 secret key"
 Enckey="your encryption key here, longer is better"
 ```
-###To use the program:
+##To use the program:
 
 **Initialise Repository:**
 >		hashtree init <repository> 
