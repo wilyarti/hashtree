@@ -1,22 +1,22 @@
 /* Copyright <2018> <Wilyarti Howard>
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-* 
+*
 * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-* 
+*
 * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentatio
 * n and/or other materials provided with the distribution.
-*  
+*
 * 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software w
 * ithout specific prior written permission.
-* 
+*
 * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE 
+* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
 * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRIC
 * T LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SU
 * CH DAMAGE.
-*/
+ */
 package main
 
 import (
@@ -29,8 +29,8 @@ import (
 	"hashtree/uploadFiles"
 	"hashtree/writeDB"
 	"log"
-	"net/http"
-	_ "net/http/pprof"
+	//"net/http"
+	//_ "net/http/pprof"
 	"os"
 	"os/user"
 	//"path"
@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/minio/minio-go"
 )
 
 // Info from config file
@@ -65,23 +66,167 @@ func ReadConfig(configfile string) Config {
 	//log.Print(config.Index)
 	return config
 }
-
 func main() {
-	go func() {
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(1)
+	}
+	switch opt := os.Args[1]; opt {
+	case "init":
+		fmt.Println("Init")
+	case "list":
+		hashlist()
+		os.Exit(0)
+	case "pull":
+		hashseed()
+		os.Exit(0)
+	case "push":
+		hashtree()
+		os.Exit(0)
+	default:
+		fmt.Println(os.Args[0])
+		usage()
+		os.Exit(1)
+	}
+
+}
+func hashlist() {
+	log.SetFlags(log.Lshortfile)
+	if len(os.Args) < 3 {
+		usage()
+		os.Exit(1)
+	}
+
+	// load config to get ready to upload
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var config Config
+	var configName []string
+	configName = append(configName, usr.HomeDir)
+	configName = append(configName, "/.htcfg")
+	config = ReadConfig(strings.Join(configName, ""))
+	bucketname := os.Args[2]
+	// New returns an Amazon S3 compatible client object. API compatibility (v2 or v4) is automatically
+	// determined based on the Endpoint value.
+	s3Client, err := minio.New(config.Url, config.Accesskey, config.Secretkey, config.Secure)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	// Create a done channel to control 'ListObjects' go routine.
+	doneCh := make(chan struct{})
+
+	// Indicate to our routine to exit cleanly upon return.
+	defer close(doneCh)
+
+	// List all objects from a bucket-name with a matching prefix.
+	for object := range s3Client.ListObjects(bucketname, "", config.Secure, doneCh) {
+		if object.Err != nil {
+			fmt.Println(object.Err)
+			return
+		}
+		matched, err := regexp.MatchString(".hsh$", object.Key)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if matched == true {
+			fmt.Println(object.Key)
+		}
+	}
+}
+func hashseed() {
+	log.SetFlags(log.Lshortfile)
+	if len(os.Args) < 5 {
+		usage()
+		os.Exit(1)
+	}
+	// check for and add trailing / in folder name
+	var strs []string
+	slash := os.Args[4][len(os.Args[4])-1:]
+	var dir = os.Args[4]
+	if slash != "/" {
+		strs = append(strs, os.Args[4])
+		strs = append(strs, "/")
+		dir = strings.Join(strs, "")
+	}
+
+	// load config to get ready to upload
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var config Config
+	var configName []string
+	configName = append(configName, usr.HomeDir)
+	configName = append(configName, "/.htcfg")
+	config = ReadConfig(strings.Join(configName, ""))
+
+	bucketname := os.Args[2]
+	databasename := os.Args[3]
+
+	// download .db from server this contains the hashed
+	var dbnameLocal []string
+	dbnameLocal = append(dbnameLocal, dir)
+	dbnameLocal = append(dbnameLocal, databasename)
+	downloadlist := make(map[string]string)
+	downloadlist[strings.Join(dbnameLocal, "")] = databasename
+
+	// download and check error
+	var remotedb = make(map[string][]string)
+	err, _ = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	if err != nil {
+		fmt.Println("Error unable to download database:", err)
+	} else {
+		remotedb, err = readDB.Load(strings.Join(dbnameLocal, ""))
+		if err != nil {
+			fmt.Println("Error processing database!", err)
+			os.Exit(1)
+		}
+	}
+	// iterate through hashmap, pull list of file names
+	// build these into a hash => path list
+	dlist := make(map[string]string)
+	for hash, filearray := range remotedb {
+		// build local file tree
+		for _, file := range filearray {
+			var f []string
+			f = append(f, dir)
+			f = append(f, file)
+			dlist[strings.Join(f, "")] = hash
+		}
+	}
+	// Download files
+	err, failedDownloads := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dlist, bucketname)
+	if err != nil {
+		for _, file := range failedDownloads {
+			fmt.Println("Error failed to download: ", file)
+		}
+		os.Exit(1)
+	}
+}
+func hashtree() {
+	/* for debugging memory
+	* uncomment to enable pprof debugger
+	* go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+	*
+	*
+	*/
 	log.SetFlags(log.Lshortfile)
 	// check we have enough command line args
-	if len(os.Args) < 3 {
-		fmt.Print("Error: please specify bucket and directory!\n")
+	if len(os.Args) < 4 {
+		usage()
 		os.Exit(1)
 	}
 	// check for and add trailing / in folder name and add it
 	var strs []string
-	slash := os.Args[2][len(os.Args[2])-1:]
-	var dir = os.Args[2]
+	slash := os.Args[3][len(os.Args[3])-1:]
+	var dir = os.Args[3]
 	if slash != "/" {
-		strs = append(strs, os.Args[2])
+		strs = append(strs, os.Args[3])
 		strs = append(strs, "/")
 		dir = strings.Join(strs, "")
 	}
@@ -93,7 +238,7 @@ func main() {
 	var hashdb []string
 	hashdb = append(hashdb, dir)
 	hashdb = append(hashdb, ".")
-	hashdb = append(hashdb, os.Args[1])
+	hashdb = append(hashdb, os.Args[2])
 	hashdb = append(hashdb, ".hsh")
 	// the default output of files is a byte array and string
 	// this is later changed to string[]=>string
@@ -113,7 +258,7 @@ func main() {
 	configName = append(configName, usr.HomeDir)
 	configName = append(configName, "/.htcfg")
 	config = ReadConfig(strings.Join(configName, ""))
-	bucketname := os.Args[1]
+	bucketname := os.Args[2]
 
 	// download .db from server this contains the hashed
 	// of all already uploaded files
@@ -136,7 +281,9 @@ func main() {
 			fmt.Println("Error failed to download: ", file)
 		}
 		fmt.Println(err)
-		fmt.Println("Error .db database is missing, assuming new configuration!")
+		fmt.Println("Error: Unable to download database.")
+		fmt.Println("\t Hash the database been initialised?")
+		os.Exit(1)
 	} else {
 		remotedb, err = readDB.Load(strings.Join(dbnameLocal, ""))
 		if err != nil {
@@ -212,6 +359,7 @@ func main() {
 		} else {
 			remotedb[s] = append(remotedb[s], file)
 		}
+		remotedb[s] = removeDuplicates(remotedb[s])
 
 	}
 
@@ -234,8 +382,8 @@ func main() {
 	var reponame []string
 	var dbsnapshot []string
 	dbsnapshot = append(dbsnapshot, bucketname)
-	dbsnapshot = append(dbsnapshot, "")
-	dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_14:05:05"))
+	dbsnapshot = append(dbsnapshot, "-")
+	dbsnapshot = append(dbsnapshot, t.Format("2006-01-02_15:04:05"))
 	dbsnapshot = append(dbsnapshot, ".db")
 
 	reponame = append(reponame, bucketname)
@@ -278,4 +426,34 @@ func main() {
 	if err != nil {
 		fmt.Println("Error deleting database!", err)
 	}
+}
+
+func usage() {
+	fmt.Println(`Usage:
+	Initialise Repository:
+		hashtree init <repository>
+	List snapshots:
+		hashtree list <repository>
+	Deploy snapshot:
+		hashtree pull <repository> <snapshot>
+	Create snapshot:
+		hashtree push <repository> <directory>`)
+}
+func removeDuplicates(elements []string) []string {
+	// Use map to record duplicates as we find them.
+	encountered := map[string]bool{}
+	result := []string{}
+
+	for v := range elements {
+		if encountered[elements[v]] == true {
+			// Do not add duplicate.
+		} else {
+			// Record this element as an encountered element.
+			encountered[elements[v]] = true
+			// Append to result slice.
+			result = append(result, elements[v])
+		}
+	}
+	// Return the new slice.
+	return result
 }

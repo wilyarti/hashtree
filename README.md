@@ -1,6 +1,6 @@
 # hashtree
 # WARNING #
-hashtree is currently being re-written in Go by the author. The previous version is still supported but no new features will be added.
+hashtree is currently being re-written in bad Go by the author. The previous version is still supported but no new features will be added.
 
 # hashtree
 
