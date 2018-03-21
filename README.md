@@ -3,8 +3,10 @@ Introduction:
 hashtree is a data dedeplication program that features client side encryption and S3 compatibility. I creates snapshots in time
 of entire directory structures that can be duplicated or restored at a later date.
 
-Files are note deleted on the server, they are just ommited from the file system structure - these files remain in the database and 
-this means they will not be uploaded again at later date.
+Files are never deleted on the server, they are just ommited from the file system structure in the snapshot - these files remain 
+in the database and this means they will not be uploaded again at a later date.
+
+This also means that if you backup files frequently the modified copies will be kept frozen in time and can be restored later. 
 
 The program requires a ".htcfg" file with the following in the ~ (home) directory:
 ```
@@ -15,6 +17,8 @@ Accesskey="S3 access key"
 Secretkey="S3 secret key"
 Enckey="your encryption key here, longer is better"
 ```
+Be sure to print this file out. If you loose these details and you loose this config file, you will not be able to access your data ever again!
+
 ## To use the program:
 
 **Initialise Repository:**
