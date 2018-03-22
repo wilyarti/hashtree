@@ -1,41 +1,46 @@
 # hashtree
-# WARNING #
-hashtree is currently being re-written in bad Go by the author. The previous version is still supported but no new features will be added.
+Introduction:
+hashtree is a data dedeplication program that features client side encryption and S3 compatibility. I creates snapshots in time
+of entire directory structures that can be duplicated or restored at a later date.
 
-# hashtree
+Files are never deleted on the server, they are just ommited from the file system structure in the snapshot - these files remain 
+in the database and this means they will not be uploaded again at a later date.
 
-S3 compatible data deduplication script written in Perl 
+This also means that if you backup files frequently the modified copies will be kept frozen in time and can be restored later. 
 
-# Intro
-Hashtree creates a data base containing a hash of each file in a directory and the files location. This way multiple copies of a file will not be uploaded saving remote storage. 
+The program requires a ".htcfg" file with the following in the ~ (home) directory:
+```
+Url="127.0.0.1:9000" #any S3 endpoint
+Port=9000 #deprecated use above version with the port in the url
+Secure=false #boolean false or true (use HTTP or HTTPS)
+Accesskey="S3 access key"
+Secretkey="S3 secret key"
+Enckey="your encryption key here, longer is better"
+```
+Be sure to print this file out. If you loose these details and you loose this config file, you will not be able to access your data ever again!
 
-This also means when a file is updated the original file is still kept on the server but orphaned from the current database as the hash of the file will have changed. This will allow for (in the future - not implemeneted) a "snapshot" of a directory to be taken and reverted to or a snapshot of a single file with full history.
+## To use the program:
 
-If there is a difference in the files then the user is prompted and a diff of the two files is created.
+**Initialise Repository:**
+>		hashtree init <repository> 
+    
+This will create the remote bucket and create an empty database (not implemented yet)
 
-This program allows for multiple computers to have access to the same file system structure and allows for those files to be distrubuted over multiple computers regardless of local filesystem format.
+**List snapshots:**
+>		hashtree list <repository>
+    
+This lists all available filesystem snapshots
 
-# How to use
-Download and configure s3cmd to use encryption and work with your chosen cloud provider.
+**Deploy snapshot:**
+>		hashtree pull <repository> <snapshot> <directory>
 
-Then either download the Linux binary "hashtree" or the Perl script "hashtree.pl" and run it.
+This will deploy a snapshot to a given directory. All paths will be created so the directory need not exist.
 
-If you use the Perl script you will need to install CPAN and all the missing dependancies.
-$ pip3 install s3cmd
-$ cpan File::Find Data::Dumper Digest::file Digest::SHA YAML YAML::Loader Array::Split File::Basename File::Path
+**Create snapshot:**
+>		hashtree push <repository> <directory> 
 
-You will also need:
-rfcdiff
-firefox
+This will create a new snapshot and upload any new files to the remote database. Each snapshot only takes up as much space as 
+the new files and the size of the snapshot files (only a few 100kB).
 
-I will create Windows executables soon.
+Any problems please feel free to start a pull request. 
 
-# Todo
-~~I would like to rewrite this program in either Python or Golang and reduce all the dependancies into a single file. Either than or build a single installable Linux snap or Docker image to make installation simpler.~~
-
-1.) Build a Windows and Mac OSX executable.
-
-2.) A GUI is on the cards in the future.
-
-3.) Eliminate the need for third party libraries. There is a bug in YAML::Loader with files that have multiple spaces. I will create a simple YAML formatter shortly.
-4.) Write or implement a Perl base s3 storage backend. Currently using s3cmd.
