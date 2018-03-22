@@ -78,7 +78,10 @@ func main() {
 		hashlist()
 		os.Exit(0)
 	case "pull":
-		hashseed()
+		hashseed(false)
+		os.Exit(0)
+	case "nuke":
+		hashseed(true)
 		os.Exit(0)
 	case "push":
 		hashtree()
@@ -136,7 +139,7 @@ func hashlist() {
 		}
 	}
 }
-func hashseed() {
+func hashseed(nuke bool) {
 	log.SetFlags(log.Lshortfile)
 	if len(os.Args) < 5 {
 		usage()
@@ -175,7 +178,7 @@ func hashseed() {
 
 	// download and check error
 	var remotedb = make(map[string][]string)
-	err, _ = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err, _ = downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname, nuke)
 	if err != nil {
 		fmt.Println("Error unable to download database:", err)
 	} else {
@@ -198,7 +201,7 @@ func hashseed() {
 		}
 	}
 	// Download files
-	err, failedDownloads := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dlist, bucketname)
+	err, failedDownloads := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dlist, bucketname, nuke)
 	if err != nil {
 		for _, file := range failedDownloads {
 			fmt.Println("Error failed to download: ", file)
@@ -275,7 +278,7 @@ func hashtree() {
 
 	// download and check error
 	// download has the format filename => remotename
-	err, failedDownload := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname)
+	err, failedDownload := downloadFiles.Download(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, downloadlist, bucketname, false)
 	if err != nil {
 		for _, file := range failedDownload {
 			fmt.Println("Error failed to download: ", file)
@@ -436,6 +439,8 @@ func usage() {
 		hashtree list <repository>
 	Deploy snapshot:
 		hashtree pull <repository> <snapshot> <directory>
+	Overwrite local files:
+		hashtree nuke <repository> <snapshot> <directory>
 	Create snapshot:
 		hashtree push <repository> <directory>`)
 }

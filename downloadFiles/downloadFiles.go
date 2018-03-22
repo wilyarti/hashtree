@@ -1,22 +1,22 @@
 /* Copyright <2018> <Wilyarti Howard>
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-* 
+*
 * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-* 
+*
 * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentatio
 * n and/or other materials provided with the distribution.
-*  
+*
 * 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software w
 * ithout specific prior written permission.
-* 
+*
 * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE 
+* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
 * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRIC
 * T LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SU
 * CH DAMAGE.
-*/
+ */
 package downloadFiles
 
 import (
@@ -91,7 +91,7 @@ func decryptedSize(encryptedSize int64) (int64, error) {
 	return size, nil
 }
 
-func Download(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) (error, []string) {
+func Download(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string, nuke bool) (error, []string) {
 	// break up map into 5 parts
 	jobs := make(chan map[string]string, MAX)
 	results := make(chan string, len(filelist))
@@ -99,7 +99,7 @@ func Download(url string, port int, secure bool, accesskey string, secretkey str
 	// This starts up MAX workers, initially blocked
 	// because there are no jobs yet.
 	for w := 1; w <= MAX; w++ {
-		go DownloadFile(bucket, url, secure, accesskey, secretkey, enckey, w, jobs, results)
+		go DownloadFile(bucket, url, secure, accesskey, secretkey, enckey, w, nuke, jobs, results)
 	}
 
 	// Here we send MAX `jobs` and then `close` that
@@ -139,7 +139,7 @@ func Download(url string, port int, secure bool, accesskey string, secretkey str
 
 }
 
-func DownloadFile(bucket string, url string, secure bool, accesskey string, secretkey string, enckey string, id int, jobs <-chan map[string]string, results chan<- string) {
+func DownloadFile(bucket string, url string, secure bool, accesskey string, secretkey string, enckey string, id int, nuke bool, jobs <-chan map[string]string, results chan<- string) {
 	for j := range jobs {
 		// hash is reversed: filepath => hash
 		for fpath, hash := range j {
@@ -154,18 +154,18 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 
 				digest := sha256.Sum256(data)
 				checksum := hex.EncodeToString(digest[:])
-				if hash != checksum {
-					out := fmt.Sprintf("[!] %s => %s local file differs from remote version!", hash, fpath)
-					fmt.Println(out)
-					results <- hash
-					break
-
-				} else {
+				if hash == checksum {
 					b := path.Base(fpath)
 					out := fmt.Sprintf("[V]\t%s => %s", hash[:8], b)
 					fmt.Println(out)
 					results <- ""
 					break
+				} else if (hash != checksum) && (nuke == false) {
+					out := fmt.Sprintf("[!] %s => %s local file differs from remote version!", hash, fpath)
+					fmt.Println(out)
+					results <- hash
+					break
+
 				}
 			}
 			s3Client, err := minio.New(url, accesskey, secretkey, secure)
