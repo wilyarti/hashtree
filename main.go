@@ -33,7 +33,6 @@ import (
 	//_ "net/http/pprof"
 	"os"
 	"os/user"
-	//"path"
 	"regexp"
 	"strings"
 	"time"
@@ -73,7 +72,12 @@ func main() {
 	}
 	switch opt := os.Args[1]; opt {
 	case "init":
-		fmt.Println("Init is not implemented yet.")
+		err := initRepo()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	case "list":
 		hashlist()
 		os.Exit(0)
@@ -430,11 +434,88 @@ func hashtree() {
 		fmt.Println("Error deleting database!", err)
 	}
 }
+func initRepo() error {
+	log.SetFlags(log.Lshortfile)
+	if len(os.Args) < 3 {
+		usage()
+		os.Exit(1)
+	}
+
+	// load config to get ready to upload
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var config Config
+	var configName []string
+	configName = append(configName, usr.HomeDir)
+	configName = append(configName, "/.htcfg")
+	config = ReadConfig(strings.Join(configName, ""))
+	bucketname := os.Args[2]
+	// New returns an Amazon S3 compatible client object. API compatibility (v2 or v4) is automatically
+	// determined based on the Endpoint value.
+	s3Client, err := minio.New(config.Url, config.Accesskey, config.Secretkey, config.Secure)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	found, err := s3Client.BucketExists(bucketname)
+	if err != nil {
+		return err
+	}
+
+	if found {
+		fmt.Println("Bucket exists.")
+	} else {
+		fmt.Println("Creating bucket.")
+		err = s3Client.MakeBucket(bucketname, "us-east-1")
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+	var strs []string
+	slash := os.Args[3][len(os.Args[3])-1:]
+	var dir = os.Args[3]
+	if slash != "/" {
+		strs = append(strs, os.Args[3])
+		strs = append(strs, "/")
+		dir = strings.Join(strs, "")
+	}
+	var dbname []string
+	var dbnameLocal []string
+	dbname = append(dbname, bucketname)
+	dbname = append(dbname, ".db")
+	dbnameLocal = append(dbnameLocal, dir)
+	dbnameLocal = append(dbnameLocal, ".")
+	dbnameLocal = append(dbnameLocal, strings.Join(dbname, ""))
+	file, err := os.Create(strings.Join(dbnameLocal, ""))
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+	dbuploadlist := make(map[string]string)
+	// add these files to the upload list
+	dbuploadlist[strings.Join(dbname, "")] = strings.Join(dbnameLocal, "")
+	err, failedUploads := uploadFiles.Upload(config.Url, config.Port, config.Secure, config.Accesskey, config.Secretkey, config.Enckey, dbuploadlist, bucketname)
+	if err != nil {
+		for _, hash := range failedUploads {
+			fmt.Println("Failed to upload: ", hash)
+		}
+		return err
+	}
+
+	err = os.Remove(strings.Join(dbnameLocal, ""))
+	if err != nil {
+		fmt.Println("Error deleting database!", err)
+	}
+	return nil
+
+}
 
 func usage() {
 	fmt.Println(`Usage:
 	Initialise Repository:
-		hashtree init <repository>
+		hashtree init <repository> <directory>
 	List snapshots:
 		hashtree list <repository>
 	Deploy snapshot:
