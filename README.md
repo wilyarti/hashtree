@@ -22,9 +22,9 @@ Be sure to print this file out. If you loose these details and you loose this co
 ## To use the program:
 
 **Initialise Repository:**
->		hashtree init <repository> 
+>		hashtree init <repository> <directory>
     
-This will create the remote bucket and create an empty database (not implemented yet)
+This will create the remote bucket and create an empty database. Please be aware that this can also overwrite an existing database, use with caution.
 
 **List snapshots:**
 >		hashtree list <repository>
@@ -36,8 +36,14 @@ This lists all available filesystem snapshots
 
 This will deploy a snapshot to a given directory. All paths will be created so the directory need not exist.
 
+**Overwrite local files using remote repository:**
+>       hashtree nuke <repository> <snapshot> <directroy>
+
+This will overwrite any file with the same path as the remote repository, use with caution.
+
 **Create snapshot:**
 >		hashtree push <repository> <directory> 
+    
 
 This will create a new snapshot and upload any new files to the remote database. Each snapshot only takes up as much space as 
 the new files and the size of the snapshot files (only a few 100kB).
