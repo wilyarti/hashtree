@@ -29,8 +29,8 @@ import (
 	"hashtree/uploadFiles"
 	"hashtree/writeDB"
 	"log"
-	//"net/http"
-	//_ "net/http/pprof"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/user"
 	"regexp"
@@ -214,14 +214,10 @@ func hashseed(nuke bool) {
 	}
 }
 func hashtree() {
-	/* for debugging memory
-	* uncomment to enable pprof debugger
-	* go func() {
+	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-	*
-	*
-	*/
+
 	log.SetFlags(log.Lshortfile)
 	// check we have enough command line args
 	if len(os.Args) < 4 {
@@ -489,6 +485,7 @@ func initRepo() error {
 	dbnameLocal = append(dbnameLocal, ".")
 	dbnameLocal = append(dbnameLocal, strings.Join(dbname, ""))
 	file, err := os.Create(strings.Join(dbnameLocal, ""))
+	_, err = file.WriteString("\n")
 	defer file.Close()
 	if err != nil {
 		return err

@@ -22,6 +22,7 @@ package uploadFiles
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"time"
@@ -29,6 +30,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/minio/minio-go"
 	"github.com/minio/sio"
+	"github.com/pierrec/lz4"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -81,6 +83,17 @@ func getEncryptedSize(size int64) int64 {
 		ssize += mod + sseDAREPackageMetaSize
 	}
 	return ssize
+}
+
+// compressLZ4 returns an io.Reader that produces lz4 compressed data from src.
+func compressLZ4(src io.Reader) io.Reader {
+	pr, pw := io.Pipe()
+	zw := lz4.NewWriter(pw)
+	go func() {
+		_, err := zw.ReadFrom(src)
+		pw.CloseWithError(err) // make sure the other side can see EOF or other errors
+	}()
+	return pr
 }
 
 func Upload(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string) (error, []string) {
@@ -160,23 +173,32 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 			}
 			password := []byte(enckey)
 			salt := []byte(path.Join(bucket, hash))
-			encrypted, err := sio.EncryptReader(object, sio.Config{
-				// generate a 256 bit long key.
-				Key: argon2.IDKey(password, salt, 1, 64*1024, 4, 32),
-			})
-			if err != nil {
-				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-				fmt.Println(out)
-				results <- hash
-				break
-			}
 
 			// Encrypt file content and upload to the server
 			// try multiple times
 			b := path.Base(filepath)
 			for i := 0; i < 4; i++ {
 				start := time.Now()
-				size, err := s3Client.PutObject(bucket, hash, encrypted, getEncryptedSize(objectStat.Size()), minio.PutObjectOptions{})
+
+				pw := compressLZ4(object)
+				encrypted, err := sio.EncryptReader(pw, sio.Config{
+					// generate a 256 bit long key.
+					Key: argon2.IDKey(password, salt, 1, 64*1024, 4, 32),
+				})
+				if err != nil {
+					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+					fmt.Println(out)
+
+					results <- hash
+					break
+				}
+
+				// specify size as -1 as there is no way to determine the size
+				size, err := s3Client.PutObject(bucket, hash, encrypted, -1, minio.PutObjectOptions{})
+				if size == 0 && objectStat.Size() != 0 {
+					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+					fmt.Println(out)
+				}
 				elapsed := time.Since(start)
 				if err != nil {
 					if i == 3 {

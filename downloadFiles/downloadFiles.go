@@ -32,6 +32,8 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/pierrec/lz4"
+
 	"github.com/minio/minio-go"
 	"github.com/minio/sio"
 	"golang.org/x/crypto/argon2"
@@ -89,6 +91,18 @@ func decryptedSize(encryptedSize int64) (int64, error) {
 		size += mod - sseDAREPackageMetaSize
 	}
 	return size, nil
+}
+
+// decompressLZ4 returns an io.Reader that produces lz4 compressed data from src.
+func decompressLZ4(src io.Reader) io.Reader {
+	pr, pw := io.Pipe()
+	zr := lz4.NewReader(src)
+	go func() {
+		_, err := zr.WriteTo(pw)
+		pw.CloseWithError(err) // make sure the other side can see EOF or other errors
+	}()
+	return pr
+
 }
 
 func Download(url string, port int, secure bool, accesskey string, secretkey string, enckey string, filelist map[string]string, bucket string, nuke bool) (error, []string) {
@@ -197,6 +211,10 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 						break
 					}
 				}
+				// size not used. we don't know the decrypted and decompressed
+				// size so just ignore it. errors will be caught by the hash
+				// check.
+				/*size, err := decryptedSize(objSt.Size)
 
 				objSt, err := obj.Stat()
 				if err != nil {
@@ -205,14 +223,12 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 					results <- hash
 					break
 				}
-
-				size, err := decryptedSize(objSt.Size)
 				if err != nil {
 					out := fmt.Sprintf("[!] %s => %s failed to download: %s", hash, fpath, err)
 					fmt.Println(out)
 					results <- hash
 					break
-				}
+				}*/
 				localFile, err := os.Create(fpath)
 				if err != nil {
 					out := fmt.Sprintf("[!] %s => %s Error creating file.", hash, fpath)
@@ -234,7 +250,8 @@ func DownloadFile(bucket string, url string, secure bool, accesskey string, secr
 					results <- hash
 					break
 				}
-				dsize, err := io.CopyN(localFile, decrypted, size)
+				pr := decompressLZ4(decrypted)
+				dsize, err := io.Copy(localFile, pr)
 				if err != nil {
 					out := fmt.Sprintf("[!] %s => %s failed to download: %s", hash, fpath, err)
 					fmt.Println(out)
