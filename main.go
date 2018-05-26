@@ -485,7 +485,6 @@ func initRepo() error {
 	dbnameLocal = append(dbnameLocal, ".")
 	dbnameLocal = append(dbnameLocal, strings.Join(dbname, ""))
 	file, err := os.Create(strings.Join(dbnameLocal, ""))
-	_, err = file.WriteString("\n")
 	defer file.Close()
 	if err != nil {
 		return err

@@ -154,30 +154,29 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				results <- hash
 				break
 			}
-
-			// minio-go example code modified:
-			object, err := os.Open(filepath)
-			if err != nil {
-				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-				fmt.Println(out)
-				results <- hash
-				break
-			}
-			defer object.Close()
-			objectStat, err := object.Stat()
-			if err != nil {
-				out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
-				fmt.Println(out)
-				results <- hash
-				break
-			}
-			password := []byte(enckey)
-			salt := []byte(path.Join(bucket, hash))
-
-			// Encrypt file content and upload to the server
-			// try multiple times
 			b := path.Base(filepath)
 			for i := 0; i < 4; i++ {
+				// minio-go example code modified:
+				object, err := os.Open(filepath)
+				if err != nil {
+					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+					fmt.Println(out)
+					results <- hash
+					break
+				}
+				defer object.Close()
+				objectStat, err := object.Stat()
+				if err != nil {
+					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
+					fmt.Println(out)
+					results <- hash
+					break
+				}
+				password := []byte(enckey)
+				salt := []byte(path.Join(bucket, hash))
+
+				// Encrypt file content and upload to the server
+				// try multiple times
 				start := time.Now()
 
 				pw := compressLZ4(object)
@@ -188,7 +187,6 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				if err != nil {
 					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 					fmt.Println(out)
-
 					results <- hash
 					break
 				}
