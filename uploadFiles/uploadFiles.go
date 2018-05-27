@@ -196,6 +196,8 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				if size == 0 && objectStat.Size() != 0 {
 					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 					fmt.Println(out)
+					results <- hash
+					break
 				}
 				elapsed := time.Since(start)
 				if err != nil {
