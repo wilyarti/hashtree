@@ -155,7 +155,7 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				break
 			}
 			b := path.Base(filepath)
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 3; i++ {
 				// minio-go example code modified:
 				object, err := os.Open(filepath)
 				if err != nil {
@@ -199,7 +199,7 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				}
 				elapsed := time.Since(start)
 				if err != nil {
-					if i == 3 {
+					if i == 2 {
 						out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 						fmt.Println(out)
 						results <- hash
@@ -208,10 +208,10 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 				} else {
 					var s uint64 = uint64(size)
 					if len(hash) == 64 {
-						fmt.Printf("[U][%d]\t(%s)\t(%s)    \t%s => %s\n", i, elapsed, humanize.Bytes(s), hash[:8], b)
+						fmt.Printf("[U][%d]\t(%.2fs)\t(%s)    \t%s => %s\n", i, elapsed, humanize.Bytes(s), hash[:8], b)
 
 					} else {
-						fmt.Printf("[U][%d]\t(%s)\t(%s)    \t%s => %s\n", i, elapsed, humanize.Bytes(s), hash, b)
+						fmt.Printf("[U][%d]\t(%.2fs)\t(%s)    \t%s => %s\n", i, elapsed, humanize.Bytes(s), hash, b)
 					}
 					results <- ""
 					break
