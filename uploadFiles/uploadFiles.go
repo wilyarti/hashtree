@@ -191,15 +191,19 @@ func UploadFile(bucket string, url string, secure bool, accesskey string, secret
 					break
 				}
 
-				// specify size as -1 as there is no way to determine the size
-				size, err := s3Client.PutObject(bucket, hash, encrypted, -1, minio.PutObjectOptions{})
+				// specify size as a negative value, this represents a size estimate to reduce memory
+				// usage. the minio-go package was modified to allow for size estimates.
+				var objSizeFlt float64
+				objSizeFlt = float64(objectStat.Size())
+				objSizeFlt = objSizeFlt * -1
+				size, err := s3Client.PutObject(bucket, hash, encrypted, int64(objSizeFlt), minio.PutObjectOptions{})
 				if size == 0 && objectStat.Size() != 0 {
 					out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
 					fmt.Println(out)
 					results <- hash
 					break
 				}
-				elapsed := time.Since(start)
+				elapsed := time.Since(start).Seconds()
 				if err != nil {
 					if i == 2 {
 						out := fmt.Sprintf("[F] %s => %s failed to upload: %s", hash, filepath, err)
