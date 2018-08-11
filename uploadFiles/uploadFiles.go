@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/minio/minio-go"
+	"github.com/wilyarti/minio-go"
 	"github.com/minio/sio"
 	"github.com/pierrec/lz4"
 	"golang.org/x/crypto/argon2"

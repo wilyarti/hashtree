@@ -38,7 +38,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/minio/minio-go"
+	"github.com/wilyarti/minio-go"
 )
 
 // Info from config file

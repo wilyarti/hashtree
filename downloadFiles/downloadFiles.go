@@ -34,7 +34,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/pierrec/lz4"
 
-	"github.com/minio/minio-go"
+	"github.com/wilyarti/minio-go"
 	"github.com/minio/sio"
 	"golang.org/x/crypto/argon2"
 )
